@@ -33,12 +33,12 @@ with app.app_context():
     db.create_all()
     
     # Create default admin user if none exists
-    if not User.query.filter_by(role='admin').first():
+    if not User.query.filter_by(role=UserRole.ADMIN).first():
         admin, error = LocalAuthService.create_user(
             'admin',
             'admin',
             'admin@riparr.local',
-            role='admin'
+            role=UserRole.ADMIN
         )
         if admin:
             print("Default admin user created: username=admin, password=admin")
