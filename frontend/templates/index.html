@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riparr - Music Requester</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎵 Riparr</h1>
+            <p class="subtitle">Request your favorite music</p>
+        </header>
+
+        <div class="request-form">
+            <h2>Make a Request</h2>
+            <form id="requestForm">
+                <div class="form-group">
+                    <label for="song">Song Name *</label>
+                    <input type="text" id="song" name="song" required>
+                </div>
+                <div class="form-group">
+                    <label for="artist">Artist</label>
+                    <input type="text" id="artist" name="artist">
+                </div>
+                <div class="form-group">
+                    <label for="requester">Your Name</label>
+                    <input type="text" id="requester" name="requester" placeholder="Anonymous">
+                </div>
+                <button type="submit" class="btn-submit">Submit Request</button>
+            </form>
+        </div>
+
+        <div class="requests-list">
+            <h2>Recent Requests</h2>
+            <div id="requestsContainer">
+                <p class="no-requests">No requests yet. Be the first to request a song!</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
