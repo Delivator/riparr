@@ -6,4 +6,18 @@ services:
       - "5000:5000"
     environment:
       - PORT=5000
+      - SECRET_KEY=change-this-in-production
+      - DATABASE_URL=sqlite:////app/data/riparr.db
+      - JELLYFIN_URL=${JELLYFIN_URL:-}
+      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY:-}
+      - PRIMARY_STREAMING_SERVICE=${PRIMARY_STREAMING_SERVICE:-qobuz}
+      - FALLBACK_STREAMING_SERVICE=${FALLBACK_STREAMING_SERVICE:-deezer}
+      - MUSIC_OUTPUT_PATH=/media/Music
+    volumes:
+      - riparr-data:/app/data
+      - ${MUSIC_PATH:-./music}:/media/Music
+      - ${CONFIG_PATH:-./config}:/app/config
     restart: unless-stopped
+
+volumes:
+  riparr-data:
