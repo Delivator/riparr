@@ -1,0 +1,46 @@
+# Streamrip Configuration Template
+# Copy this file to config/streamrip.toml and fill in your credentials
+# See: https://github.com/nathom/streamrip for full documentation
+
+[downloads]
+folder = "/tmp/riparr/downloads"
+source_subdirectories = true
+
+[qobuz]
+# Get credentials from https://www.qobuz.com/
+email = "YOUR_QOBUZ_EMAIL"
+password = "YOUR_QOBUZ_PASSWORD"
+quality = 3  # 1: MP3 320, 2: FLAC 16bit/44.1kHz, 3: FLAC 24bit/96kHz
+
+[deezer]
+# Deezer ARL token - get from browser cookies after logging in
+arl = "YOUR_DEEZER_ARL_TOKEN"
+quality = 2  # 0: MP3 128, 1: MP3 320, 2: FLAC
+
+[tidal]
+# Get credentials from https://tidal.com/
+username = "YOUR_TIDAL_USERNAME"
+password = "YOUR_TIDAL_PASSWORD"
+quality = 3  # 0: AAC 96, 1: AAC 320, 2: FLAC, 3: MQA
+
+[soundcloud]
+client_id = "YOUR_SOUNDCLOUD_CLIENT_ID"
+quality = 0  # SoundCloud only has one quality
+
+[youtube]
+quality = 0  # 0: best available
+
+[database]
+downloads_path = "/tmp/riparr/downloads/downloads.db"
+
+[conversion]
+enabled = false
+codec = "FLAC"
+sampling_rate = 48000
+bit_depth = 24
+
+[metadata]
+set_playlist_to_album = true
+renew_artwork = false
+embed_cover = true
+embed_cover_size = "large"
