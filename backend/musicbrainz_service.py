@@ -1,11 +1,9 @@
 import musicbrainzngs as mb
-from flask import current_app
 import re
 
 class MusicBrainzService:
     def __init__(self):
         # Initialize MusicBrainz API
-        user_agent = current_app.config.get('MUSICBRAINZ_USER_AGENT', 'Riparr/1.0.0')
         mb.set_useragent("Riparr", "1.0.0", "https://github.com/Delivator/riparr")
     
     def search_song(self, title, artist=None, limit=10):

@@ -163,7 +163,10 @@ def create_request():
         return jsonify({'error': 'Title is required'}), 400
     
     # Check if already available in Jellyfin
-    jellyfin_service = JellyfinService()
+    jellyfin_service = JellyfinService(
+        base_url=current_app.config.get('JELLYFIN_URL'),
+        api_key=current_app.config.get('JELLYFIN_API_KEY')
+    )
     if jellyfin_service.check_availability(title, artist, album):
         return jsonify({
             'message': 'Content already available in Jellyfin',
@@ -208,7 +211,14 @@ def process_request(request_id):
     if not current_user.is_admin():
         return jsonify({'error': 'Admin access required'}), 403
     
-    download_service = DownloadService()
+    download_service = DownloadService(
+        config_path=current_app.config.get('STREAMRIP_CONFIG_PATH', 'config/streamrip.toml'),
+        primary_service=current_app.config.get('PRIMARY_STREAMING_SERVICE', 'qobuz'),
+        fallback_service=current_app.config.get('FALLBACK_STREAMING_SERVICE', 'deezer'),
+        temp_path=current_app.config.get('TEMP_DOWNLOAD_PATH', '/tmp/riparr/downloads'),
+        output_path=current_app.config.get('MUSIC_OUTPUT_PATH', '/media/Music'),
+        path_pattern=current_app.config.get('MUSIC_PATH_PATTERN', '{artist}/{artist} - {title}')
+    )
     success, error = download_service.process_request(request_id)
     
     if success:
@@ -253,7 +263,11 @@ def search_streaming():
     if not query:
         return jsonify({'error': 'Query required'}), 400
     
-    streamrip_service = StreamripService()
+    streamrip_service = StreamripService(
+        config_path=current_app.config.get('STREAMRIP_CONFIG_PATH', 'config/streamrip.toml'),
+        primary_service=current_app.config.get('PRIMARY_STREAMING_SERVICE', 'qobuz'),
+        fallback_service=current_app.config.get('FALLBACK_STREAMING_SERVICE', 'deezer')
+    )
     results, service, error = streamrip_service.smart_search(query, content_type)
     
     if error:
@@ -270,7 +284,10 @@ def search_jellyfin():
     if not query:
         return jsonify({'error': 'Query required'}), 400
     
-    jellyfin_service = JellyfinService()
+    jellyfin_service = JellyfinService(
+        base_url=current_app.config.get('JELLYFIN_URL'),
+        api_key=current_app.config.get('JELLYFIN_API_KEY')
+    )
     results = jellyfin_service.search_library(query)
     
     return jsonify({'results': results})
@@ -315,7 +332,10 @@ def sync_jellyfin():
     if not current_user.is_admin():
         return jsonify({'error': 'Admin access required'}), 403
     
-    jellyfin_service = JellyfinService()
+    jellyfin_service = JellyfinService(
+        base_url=current_app.config.get('JELLYFIN_URL'),
+        api_key=current_app.config.get('JELLYFIN_API_KEY')
+    )
     success, message = jellyfin_service.sync_library()
     
     if success:
@@ -330,7 +350,10 @@ def test_jellyfin():
     if not current_user.is_admin():
         return jsonify({'error': 'Admin access required'}), 403
     
-    jellyfin_service = JellyfinService()
+    jellyfin_service = JellyfinService(
+        base_url=current_app.config.get('JELLYFIN_URL'),
+        api_key=current_app.config.get('JELLYFIN_API_KEY')
+    )
     success, result = jellyfin_service.test_connection()
     
     if success:

@@ -1,12 +1,15 @@
 import requests
-from flask import current_app
 from backend.models import JellyfinLibrary, ContentType, db
 from datetime import datetime
 
 class JellyfinService:
-    def __init__(self):
-        self.base_url = current_app.config.get('JELLYFIN_URL')
-        self.api_key = current_app.config.get('JELLYFIN_API_KEY')
+    def __init__(self, base_url=None, api_key=None):
+        """
+        Initialize JellyfinService with optional configuration.
+        If parameters are None, they will be loaded from Flask config on first use.
+        """
+        self.base_url = base_url
+        self.api_key = api_key
     
     def _get_headers(self):
         """Get headers for Jellyfin API requests"""

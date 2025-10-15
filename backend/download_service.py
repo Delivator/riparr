@@ -7,12 +7,21 @@ from backend.streamrip_service import StreamripService
 from datetime import datetime
 
 class DownloadService:
-    def __init__(self):
+    def __init__(self, config_path=None, primary_service=None, fallback_service=None, 
+                 temp_path=None, output_path=None, path_pattern=None):
+        """
+        Initialize DownloadService with optional configuration.
+        If parameters are None, they will be loaded from Flask config on first use.
+        """
         self.mb_service = MusicBrainzService()
-        self.streamrip_service = StreamripService()
-        self.temp_path = current_app.config.get('TEMP_DOWNLOAD_PATH', '/tmp/riparr/downloads')
-        self.output_path = current_app.config.get('MUSIC_OUTPUT_PATH', '/media/Music')
-        self.path_pattern = current_app.config.get('MUSIC_PATH_PATTERN', '{artist}/{artist} - {title}')
+        self.streamrip_service = StreamripService(
+            config_path=config_path,
+            primary_service=primary_service,
+            fallback_service=fallback_service
+        )
+        self.temp_path = temp_path or '/tmp/riparr/downloads'
+        self.output_path = output_path or '/media/Music'
+        self.path_pattern = path_pattern or '{artist}/{artist} - {title}'
     
     def process_request(self, request_id):
         """Process a music request through the full workflow"""

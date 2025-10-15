@@ -1,16 +1,25 @@
 import os
 import asyncio
-from flask import current_app
 from streamrip.client import QobuzClient, DeezerClient, TidalClient
 from streamrip.config import Config as StreamripConfig
 
 class StreamripService:
-    def __init__(self):
-        self.config_path = current_app.config.get('STREAMRIP_CONFIG_PATH', 'config/streamrip.toml')
-        self.primary_service = current_app.config.get('PRIMARY_STREAMING_SERVICE', 'qobuz')
-        self.fallback_service = current_app.config.get('FALLBACK_STREAMING_SERVICE', 'deezer')
+    def __init__(self, config_path=None, primary_service=None, fallback_service=None):
+        """
+        Initialize StreamripService with optional configuration.
+        If parameters are None, they will be loaded from Flask config on first use.
+        """
+        self.config_path = config_path or 'config/streamrip.toml'
+        self.primary_service = primary_service or 'qobuz'
+        self.fallback_service = fallback_service or 'deezer'
         self.config = None
-        self._load_config()
+        self._config_loaded = False
+    
+    def _ensure_config_loaded(self):
+        """Ensure configuration is loaded before use"""
+        if not self._config_loaded:
+            self._load_config()
+            self._config_loaded = True
     
     def _load_config(self):
         """Load streamrip configuration"""
@@ -25,8 +34,7 @@ class StreamripService:
     
     def _get_client(self, service):
         """Get the appropriate client for the streaming service"""
-        if not self.config:
-            self._load_config()
+        self._ensure_config_loaded()
         
         if service == 'qobuz':
             return QobuzClient(self.config)
