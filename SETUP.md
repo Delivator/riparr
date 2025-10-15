@@ -42,23 +42,40 @@ This guide will walk you through setting up Riparr for the first time.
 
 ### 1. Streaming Service Configuration
 
-Riparr uses [streamrip](https://github.com/nathom/streamrip) to download music. You need to configure at least one streaming service:
+Riparr uses [streamrip](https://github.com/nathom/streamrip) v2.1.0 to download music. You need to configure at least one streaming service:
 
 #### Qobuz (Recommended for quality)
 1. Sign up at https://www.qobuz.com/
-2. Add your email and password to `config/streamrip.toml`
+2. Add your email and password to `config/streamrip.toml`:
+   ```toml
+   [session.qobuz]
+   email_or_userid = "YOUR_EMAIL"
+   password_or_token = "YOUR_PASSWORD"
+   quality = 3
+   ```
 3. Set quality to 3 for highest quality (24bit/96kHz FLAC)
 
 #### Deezer (Good fallback)
 1. Login to Deezer in your browser
 2. Open browser developer tools → Application → Cookies
 3. Find the `arl` cookie value
-4. Add to `config/streamrip.toml` under `[deezer]` section
+4. Add to `config/streamrip.toml`:
+   ```toml
+   [session.deezer]
+   arl = "YOUR_ARL_TOKEN"
+   quality = 2
+   ```
 
 #### Tidal (Alternative)
 1. Sign up at https://tidal.com/
-2. Add username and password to `config/streamrip.toml`
-3. Set quality to 3 for MQA
+2. Get your user ID and access token
+3. Add to `config/streamrip.toml`:
+   ```toml
+   [session.tidal]
+   user_id = "YOUR_USER_ID"
+   access_token = "YOUR_ACCESS_TOKEN"
+   quality = 3
+   ```
 
 ### 2. Jellyfin Integration (Optional but Recommended)
 

@@ -155,11 +155,23 @@ riparr/
 
 ### Streaming Services
 
-Riparr uses [streamrip](https://github.com/nathom/streamrip) for downloading from streaming services. You need to:
+Riparr uses [streamrip](https://github.com/nathom/streamrip) v2.1.0 for downloading from streaming services. You need to:
 
 1. Create a `config/streamrip.toml` file with your streaming service credentials
 2. Configure at least one streaming service (Qobuz, Deezer, Tidal, etc.)
-3. See the [streamrip wiki](https://github.com/nathom/streamrip/wiki) for detailed configuration
+3. See the [streamrip wiki](https://github.com/nathom/streamrip/wiki/Scripting-with-Streamrip-v2) for detailed configuration
+
+**Example configuration:**
+```toml
+[session.qobuz]
+email_or_userid = "YOUR_EMAIL"
+password_or_token = "YOUR_PASSWORD"
+quality = 3
+
+[session.deezer]
+arl = "YOUR_ARL_TOKEN"
+quality = 2
+```
 
 ### File Organization
 
