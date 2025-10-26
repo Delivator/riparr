@@ -1,9 +1,9 @@
 import os
 import shutil
 from flask import current_app
-from backend.models import MusicRequest, RequestStatus, db
-from backend.musicbrainz_service import MusicBrainzService
-from backend.streamrip_service import StreamripService
+from models import MusicRequest, RequestStatus, db
+from musicbrainz_service import MusicBrainzService
+from streamrip_service import StreamripService
 from datetime import datetime
 
 class DownloadService:

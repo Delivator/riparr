@@ -1,3 +1,5 @@
+name: riparr
+
 services:
   app:
     build: .
@@ -15,9 +17,23 @@ services:
       - MUSIC_OUTPUT_PATH=/media/Music
     volumes:
       - riparr-data:/app/data
-      - ${MUSIC_PATH:-./music}:/media/Music
+      - jellyfin-media:/media
       - ${CONFIG_PATH:-./config}:/app/config
-    restart: unless-stopped
+    # restart: unless-stopped
+
+  # jellyfin:
+  #   container_name: jellyfin
+  #   volumes:
+  #     - jellyfin-config:/config
+  #     - jellyfin-cache:/cache
+  #     - jellyfin-media:/media
+  #   # network_mode: host
+  #   ports:
+  #     - "8096:8096" # Expose Jellyfin port to the host
+  #   image: jellyfin/jellyfin:10.10.7
 
 volumes:
   riparr-data:
+  jellyfin-config:
+  jellyfin-cache:
+  jellyfin-media:

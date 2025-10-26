@@ -49,3 +49,6 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Settings
+config/streamrip.toml

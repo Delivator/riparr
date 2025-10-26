@@ -3,13 +3,13 @@ from flask_cors import CORS
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import os
 
-from backend.models import db, User, MusicRequest, Settings, ContentType, RequestStatus
-from backend.config import Config
-from backend.auth_service import LocalAuthService, JellyfinAuthService
-from backend.musicbrainz_service import MusicBrainzService
-from backend.streamrip_service import StreamripService
-from backend.jellyfin_service import JellyfinService
-from backend.download_service import DownloadService
+from models import db, User, MusicRequest, Settings, ContentType, RequestStatus, UserRole
+from config import Config
+from auth_service import LocalAuthService, JellyfinAuthService
+from musicbrainz_service import MusicBrainzService
+from streamrip_service import StreamripService
+from jellyfin_service import JellyfinService
+from download_service import DownloadService
 
 app = Flask(__name__,
             static_folder='../frontend/static',
@@ -164,8 +164,8 @@ def create_request():
     
     # Check if already available in Jellyfin
     jellyfin_service = JellyfinService(
-        base_url=current_app.config.get('JELLYFIN_URL'),
-        api_key=current_app.config.get('JELLYFIN_API_KEY')
+        base_url=app.config.get('JELLYFIN_URL'),
+        api_key=app.config.get('JELLYFIN_API_KEY')
     )
     if jellyfin_service.check_availability(title, artist, album):
         return jsonify({
@@ -212,12 +212,12 @@ def process_request(request_id):
         return jsonify({'error': 'Admin access required'}), 403
     
     download_service = DownloadService(
-        config_path=current_app.config.get('STREAMRIP_CONFIG_PATH', 'config/streamrip.toml'),
-        primary_service=current_app.config.get('PRIMARY_STREAMING_SERVICE', 'qobuz'),
-        fallback_service=current_app.config.get('FALLBACK_STREAMING_SERVICE', 'deezer'),
-        temp_path=current_app.config.get('TEMP_DOWNLOAD_PATH', '/tmp/riparr/downloads'),
-        output_path=current_app.config.get('MUSIC_OUTPUT_PATH', '/media/Music'),
-        path_pattern=current_app.config.get('MUSIC_PATH_PATTERN', '{artist}/{artist} - {title}')
+        config_path=app.config.get('STREAMRIP_CONFIG_PATH', 'config/streamrip.toml'),
+        primary_service=app.config.get('PRIMARY_STREAMING_SERVICE', 'qobuz'),
+        fallback_service=app.config.get('FALLBACK_STREAMING_SERVICE', 'deezer'),
+        temp_path=app.config.get('TEMP_DOWNLOAD_PATH', '/tmp/riparr/downloads'),
+        output_path=app.config.get('MUSIC_OUTPUT_PATH', '/media/Music'),
+        path_pattern=app.config.get('MUSIC_PATH_PATTERN', '{artist}/{artist} - {title}')
     )
     success, error = download_service.process_request(request_id)
     
@@ -264,9 +264,9 @@ def search_streaming():
         return jsonify({'error': 'Query required'}), 400
     
     streamrip_service = StreamripService(
-        config_path=current_app.config.get('STREAMRIP_CONFIG_PATH', 'config/streamrip.toml'),
-        primary_service=current_app.config.get('PRIMARY_STREAMING_SERVICE', 'qobuz'),
-        fallback_service=current_app.config.get('FALLBACK_STREAMING_SERVICE', 'deezer')
+        config_path=app.config.get('STREAMRIP_CONFIG_PATH', 'config/streamrip.toml'),
+        primary_service=app.config.get('PRIMARY_STREAMING_SERVICE', 'qobuz'),
+        fallback_service=app.config.get('FALLBACK_STREAMING_SERVICE', 'deezer')
     )
     results, service, error = streamrip_service.smart_search(query, content_type)
     
@@ -285,8 +285,8 @@ def search_jellyfin():
         return jsonify({'error': 'Query required'}), 400
     
     jellyfin_service = JellyfinService(
-        base_url=current_app.config.get('JELLYFIN_URL'),
-        api_key=current_app.config.get('JELLYFIN_API_KEY')
+        base_url=app.config.get('JELLYFIN_URL'),
+        api_key=app.config.get('JELLYFIN_API_KEY')
     )
     results = jellyfin_service.search_library(query)
     
@@ -333,8 +333,8 @@ def sync_jellyfin():
         return jsonify({'error': 'Admin access required'}), 403
     
     jellyfin_service = JellyfinService(
-        base_url=current_app.config.get('JELLYFIN_URL'),
-        api_key=current_app.config.get('JELLYFIN_API_KEY')
+        base_url=app.config.get('JELLYFIN_URL'),
+        api_key=app.config.get('JELLYFIN_API_KEY')
     )
     success, message = jellyfin_service.sync_library()
     
@@ -351,8 +351,8 @@ def test_jellyfin():
         return jsonify({'error': 'Admin access required'}), 403
     
     jellyfin_service = JellyfinService(
-        base_url=current_app.config.get('JELLYFIN_URL'),
-        api_key=current_app.config.get('JELLYFIN_API_KEY')
+        base_url=app.config.get('JELLYFIN_URL'),
+        api_key=app.config.get('JELLYFIN_API_KEY')
     )
     success, result = jellyfin_service.test_connection()
     

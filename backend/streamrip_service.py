@@ -179,7 +179,7 @@ class StreamripService:
         Smart search with primary and fallback services.
         Tries various search strategies if initial search fails.
         """
-        from backend.musicbrainz_service import MusicBrainzService
+        from musicbrainz_service import MusicBrainzService
         
         # Try primary service first
         if content_type == 'track':
