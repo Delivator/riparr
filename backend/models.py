@@ -1,7 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timezone
 import enum
 
 db = SQLAlchemy()
@@ -37,7 +37,7 @@ class User(UserMixin, db.Model):
     role = db.Column(db.Enum(UserRole), default=UserRole.USER, nullable=False)
     auth_provider = db.Column(db.Enum(AuthProvider), default=AuthProvider.LOCAL, nullable=False)
     jellyfin_user_id = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     
     requests = db.relationship('MusicRequest', backref='user', lazy=True, cascade='all, delete-orphan')
     
@@ -77,8 +77,8 @@ class MusicRequest(db.Model):
     download_path = db.Column(db.String(500), nullable=True)
     file_size = db.Column(db.BigInteger, nullable=True)
     
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     completed_at = db.Column(db.DateTime, nullable=True)
     
     def to_dict(self):
@@ -102,7 +102,7 @@ class Settings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(100), unique=True, nullable=False)
     value = db.Column(db.Text, nullable=True)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     
     @staticmethod
     def get(key, default=None):
@@ -129,7 +129,7 @@ class JellyfinLibrary(db.Model):
     artist = db.Column(db.String(255), nullable=True)
     album = db.Column(db.String(255), nullable=True)
     path = db.Column(db.String(500), nullable=True)
-    last_synced = db.Column(db.DateTime, default=datetime.utcnow)
+    last_synced = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     
     def to_dict(self):
         return {

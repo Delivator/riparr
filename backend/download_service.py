@@ -1,10 +1,13 @@
 import os
 import shutil
 from flask import current_app
-from models import MusicRequest, RequestStatus, db
-from musicbrainz_service import MusicBrainzService
-from streamrip_service import StreamripService
+from backend.models import MusicRequest, RequestStatus, db
+from backend.musicbrainz_service import MusicBrainzService
+from backend.streamrip_service import StreamripService
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 class DownloadService:
     def __init__(self, config_path=None, primary_service=None, fallback_service=None, 
@@ -25,6 +28,7 @@ class DownloadService:
     
     def process_request(self, request_id):
         """Process a music request through the full workflow"""
+        logger.info(f"Starting to process request {request_id}")
         request = MusicRequest.query.get(request_id)
         if not request:
             return False, "Request not found"
@@ -43,6 +47,7 @@ class DownloadService:
                 return False, error
             
             # Download content
+            logger.info(f"Request {request_id}: Moving to DOWNLOADING status")
             request.status = RequestStatus.DOWNLOADING
             db.session.commit()
             
@@ -79,6 +84,7 @@ class DownloadService:
             return True, None
         
         except Exception as e:
+            logger.exception(f"Unexpected error processing request {request_id}")
             request.status = RequestStatus.FAILED
             request.error_message = str(e)
             db.session.commit()
@@ -116,9 +122,10 @@ class DownloadService:
             return False, "No streaming source available"
         
         # Create temp directory
-        os.makedirs(self.temp_path, exist_ok=True)
+        abs_temp_path = os.path.abspath(self.temp_path)
+        os.makedirs(abs_temp_path, exist_ok=True)
         
-        temp_download_path = os.path.join(self.temp_path, f"request_{request.id}")
+        temp_download_path = os.path.join(abs_temp_path, f"request_{request.id}")
         os.makedirs(temp_download_path, exist_ok=True)
         
         # Download based on content type
@@ -137,6 +144,16 @@ class DownloadService:
         
         if not success:
             return False, error
+        
+        # Check if files were actually produced
+        has_files = False
+        for root, dirs, filenames in os.walk(temp_download_path):
+            if filenames:
+                has_files = True
+                break
+        
+        if not has_files:
+            return False, "Download succeeded but no files were produced (likely skipped by streaming service)"
         
         request.download_path = temp_download_path
         db.session.commit()

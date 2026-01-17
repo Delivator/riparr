@@ -1,15 +1,40 @@
 from flask import Flask, jsonify, render_template, request, session
 from flask_cors import CORS
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from sqlalchemy.exc import IntegrityError, OperationalError
 import os
+from dotenv import load_dotenv
 
-from models import db, User, MusicRequest, Settings, ContentType, RequestStatus, UserRole
-from config import Config
-from auth_service import LocalAuthService, JellyfinAuthService
-from musicbrainz_service import MusicBrainzService
-from streamrip_service import StreamripService
-from jellyfin_service import JellyfinService
-from download_service import DownloadService
+# Load environment variables from .env file
+load_dotenv()
+
+import logging
+import sys
+
+# Setup logging
+log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+logging.basicConfig(
+    level=logging.INFO,
+    format=log_format,
+    handlers=[
+        logging.FileHandler('riparr_debug.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+# Ensure logger specifically for this module is also outputting
+logger.propagate = True
+# Force unbuffered logging if possible or just log startup
+logger.info("Riparr starting up...")
+
+
+from backend.models import db, User, MusicRequest, Settings, ContentType, RequestStatus, UserRole
+from backend.config import Config
+from backend.auth_service import LocalAuthService, JellyfinAuthService
+from backend.musicbrainz_service import MusicBrainzService
+from backend.streamrip_service import StreamripService
+from backend.jellyfin_service import JellyfinService
+from backend.download_service import DownloadService
 
 app = Flask(__name__,
             static_folder='../frontend/static',
@@ -24,24 +49,51 @@ db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
+@app.before_request
+def log_request_info():
+    app.logger.info('Headers: %s', request.headers)
+    app.logger.info('URL: %s', request.url)
+    app.logger.info('Method: %s', request.method)
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Create tables
-with app.app_context():
-    db.create_all()
+# --- NEW: CLI Setup Command ---
+@app.cli.command("init-db")
+def init_db_command():
+    """Creates all database tables and the default admin user."""
     
-    # Create default admin user if none exists
-    if not User.query.filter_by(role=UserRole.ADMIN).first():
-        admin, error = LocalAuthService.create_user(
-            'admin',
-            'admin',
-            'admin@riparr.local',
-            role=UserRole.ADMIN
-        )
-        if admin:
-            print("Default admin user created: username=admin, password=admin")
+    # We must be inside the app context to talk to the DB
+    with app.app_context():
+        
+        # --- Step 1: Create Tables ---
+        try:
+            db.create_all()
+            print("Database tables created.")
+        except OperationalError:
+            print("Database tables already exist. Skipping.")
+
+        # --- Step 2: Create Admin User ---
+        try:
+            admin, error = LocalAuthService.create_user(
+                'admin',
+                'admin',
+                'admin@riparr.local',
+                role=UserRole.ADMIN
+            )
+            if admin:
+                print("Default admin user created: username=admin, password=admin")
+        
+        except IntegrityError:
+            # This error means the user ALREADY EXISTS.
+            db.session.rollback()
+            print("Default admin user already exists. Skipping creation.")
+            
+        except Exception as e:
+            # Some other, unexpected error
+            db.session.rollback()
+            print(f"An unexpected error occurred while creating admin: {e}")
 
 @app.route('/')
 def index():
@@ -142,9 +194,9 @@ def get_current_user():
 def get_requests():
     """Get all music requests for current user or all if admin"""
     if current_user.is_admin():
-        requests = MusicRequest.query.order_by(MusicRequest.created_at.desc()).all()
+        requests = MusicRequest.query.order_by(MusicRequest.id.desc()).all()
     else:
-        requests = MusicRequest.query.filter_by(user_id=current_user.id).order_by(MusicRequest.created_at.desc()).all()
+        requests = MusicRequest.query.filter_by(user_id=current_user.id).order_by(MusicRequest.id.desc()).all()
     
     return jsonify({'requests': [r.to_dict() for r in requests]})
 
@@ -208,6 +260,7 @@ def get_request(request_id):
 @login_required
 def process_request(request_id):
     """Process a music request (admin only)"""
+    logger.info(f"API CALL: POST /api/requests/{request_id}/process")
     if not current_user.is_admin():
         return jsonify({'error': 'Admin access required'}), 403
     
@@ -219,12 +272,28 @@ def process_request(request_id):
         output_path=app.config.get('MUSIC_OUTPUT_PATH', '/media/Music'),
         path_pattern=app.config.get('MUSIC_PATH_PATTERN', '{artist}/{artist} - {title}')
     )
-    success, error = download_service.process_request(request_id)
+    import threading
+    logger.info(f"Starting background thread for request {request_id}")
     
-    if success:
-        return jsonify({'message': 'Request processed successfully'})
+    def run_process():
+        with app.app_context():
+            try:
+                logger.info(f"Thread started for request {request_id}")
+                success, error = download_service.process_request(request_id)
+                if not success:
+                    logger.error(f"Background process failed for request {request_id}: {error}")
+                else:
+                    logger.info(f"Background process succeeded for request {request_id}")
+            except Exception as e:
+                logger.exception(f"Fatal error in background thread for request {request_id}")
+            finally:
+                db.session.remove()
+                logger.info(f"Thread finished for request {request_id}")
+
+    thread = threading.Thread(target=run_process, daemon=True)
+    thread.start()
     
-    return jsonify({'error': error}), 400
+    return jsonify({'message': 'Processing started in the background'})
 
 # Search endpoints
 @app.route('/api/search/musicbrainz')

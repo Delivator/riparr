@@ -4,11 +4,11 @@ This guide will walk you through setting up Riparr for the first time.
 
 ## Prerequisites
 
-- Python 3.11+ or Docker
+- Python 3.11+ or Podman
 - At least one streaming service account (Qobuz, Deezer, or Tidal)
 - (Optional) Jellyfin server for library integration
 
-## Quick Start with Docker
+## Quick Start with Podman
 
 1. **Clone the repository**
    ```bash
@@ -28,9 +28,14 @@ This guide will walk you through setting up Riparr for the first time.
    # Edit .env with your configuration
    ```
 
+5. **Seed DB on first run**
+   ```bash
+   podman compose run --rm riparr flask init-db
+   ```
+
 4. **Start the application**
    ```bash
-   docker-compose up -d
+   podman compose up -d
    ```
 
 5. **Access the application**

@@ -1,5 +1,5 @@
 import requests
-from models import JellyfinLibrary, ContentType, db
+from backend.models import JellyfinLibrary, ContentType, db
 from datetime import datetime
 
 class JellyfinService:

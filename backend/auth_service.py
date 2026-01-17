@@ -1,6 +1,6 @@
 import requests
 from flask import current_app
-from models import User, AuthProvider, UserRole, db
+from backend.models import User, AuthProvider, UserRole, db
 
 class JellyfinAuthService:
     @staticmethod

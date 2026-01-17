@@ -4,6 +4,7 @@ const API_BASE = '/api';
 // State
 let currentUser = null;
 let currentSection = 'search';
+let refreshInterval = null;
 
 // DOM elements
 const authScreen = document.getElementById('authScreen');
@@ -23,26 +24,26 @@ function setupEventListeners() {
     document.querySelectorAll('.auth-tab').forEach(tab => {
         tab.addEventListener('click', () => switchAuthTab(tab.dataset.tab));
     });
-    
+
     // Auth forms
     loginForm.addEventListener('submit', handleLogin);
     registerForm.addEventListener('submit', handleRegister);
-    
+
     // Logout
     document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
-    
+
     // Navigation tabs
     document.querySelectorAll('.nav-tab').forEach(tab => {
         tab.addEventListener('click', () => switchSection(tab.dataset.section));
     });
-    
+
     // Search
     document.getElementById('searchBtn')?.addEventListener('click', handleSearch);
     document.getElementById('quickRequestForm')?.addEventListener('submit', handleQuickRequest);
-    
+
     // Requests
     document.getElementById('refreshRequestsBtn')?.addEventListener('click', loadRequests);
-    
+
     // Admin
     document.getElementById('settingsForm')?.addEventListener('submit', handleSaveSettings);
     document.getElementById('testJellyfinBtn')?.addEventListener('click', handleTestJellyfin);
@@ -57,6 +58,7 @@ async function checkAuth() {
             const data = await response.json();
             currentUser = data.user;
             showMainApp();
+            startPolling();
         } else {
             showAuthScreen();
         }
@@ -68,7 +70,7 @@ async function checkAuth() {
 function switchAuthTab(tab) {
     document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
     document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-    
+
     if (tab === 'login') {
         loginForm.style.display = 'block';
         registerForm.style.display = 'none';
@@ -80,20 +82,20 @@ function switchAuthTab(tab) {
 
 async function handleLogin(e) {
     e.preventDefault();
-    
+
     const formData = {
         username: document.getElementById('loginUsername').value,
         password: document.getElementById('loginPassword').value,
         provider: document.getElementById('loginProvider').value
     };
-    
+
     try {
         const response = await fetch(`${API_BASE}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             currentUser = data.user;
@@ -109,28 +111,28 @@ async function handleLogin(e) {
 
 async function handleRegister(e) {
     e.preventDefault();
-    
+
     const password = document.getElementById('registerPassword').value;
     const confirm = document.getElementById('registerPasswordConfirm').value;
-    
+
     if (password !== confirm) {
         showError('registerError', 'Passwords do not match');
         return;
     }
-    
+
     const formData = {
         username: document.getElementById('registerUsername').value,
         email: document.getElementById('registerEmail').value,
         password: password
     };
-    
+
     try {
         const response = await fetch(`${API_BASE}/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             currentUser = data.user;
@@ -148,6 +150,7 @@ async function handleLogout() {
     try {
         await fetch(`${API_BASE}/auth/logout`, { method: 'POST' });
         currentUser = null;
+        stopPolling();
         showAuthScreen();
     } catch (error) {
         console.error('Logout error:', error);
@@ -162,14 +165,14 @@ function showAuthScreen() {
 function showMainApp() {
     authScreen.style.display = 'none';
     mainApp.style.display = 'flex';
-    
+
     document.getElementById('userName').textContent = currentUser.username;
-    
+
     // Show admin sections if user is admin
     if (currentUser.role === 'admin') {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
     }
-    
+
     // Load initial data
     loadRequests();
 }
@@ -177,13 +180,13 @@ function showMainApp() {
 // Navigation
 function switchSection(section) {
     currentSection = section;
-    
+
     document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
     document.querySelector(`[data-section="${section}"]`).classList.add('active');
-    
+
     document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
     document.getElementById(`${section}Section`).classList.add('active');
-    
+
     // Load section-specific data
     if (section === 'admin') {
         loadSettings();
@@ -195,16 +198,16 @@ function switchSection(section) {
 async function handleSearch() {
     const query = document.getElementById('searchQuery').value;
     const type = document.getElementById('searchType').value;
-    
+
     if (!query) return;
-    
+
     const resultsDiv = document.getElementById('searchResults');
     resultsDiv.innerHTML = '<p>Searching...</p>';
-    
+
     try {
         const response = await fetch(`${API_BASE}/search/musicbrainz?query=${encodeURIComponent(query)}&type=${type}`);
         const data = await response.json();
-        
+
         if (response.ok) {
             displaySearchResults(data.results, type);
         } else {
@@ -217,12 +220,12 @@ async function handleSearch() {
 
 function displaySearchResults(results, type) {
     const resultsDiv = document.getElementById('searchResults');
-    
+
     if (!results || results.length === 0) {
         resultsDiv.innerHTML = '<p class="no-requests">No results found</p>';
         return;
     }
-    
+
     resultsDiv.innerHTML = results.map(result => `
         <div class="search-result-item">
             <div class="search-result-info">
@@ -243,16 +246,16 @@ async function requestFromSearch(type, title, artist, mbId) {
         artist: artist,
         musicbrainz_id: mbId
     };
-    
+
     try {
         const response = await fetch(`${API_BASE}/requests`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             if (data.available) {
                 showMessage('Content already available in Jellyfin!', 'success');
@@ -270,23 +273,23 @@ async function requestFromSearch(type, title, artist, mbId) {
 
 async function handleQuickRequest(e) {
     e.preventDefault();
-    
+
     const formData = {
         content_type: document.getElementById('requestType').value,
         title: document.getElementById('requestTitle').value,
         artist: document.getElementById('requestArtist').value,
         album: document.getElementById('requestAlbum').value
     };
-    
+
     try {
         const response = await fetch(`${API_BASE}/requests`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             if (data.available) {
                 showMessage('Content already available in Jellyfin!', 'success');
@@ -308,7 +311,7 @@ async function loadRequests() {
     try {
         const response = await fetch(`${API_BASE}/requests`);
         const data = await response.json();
-        
+
         if (response.ok) {
             displayRequests(data.requests, 'requestsList');
         }
@@ -325,12 +328,12 @@ async function loadAllRequests() {
 
 function displayRequests(requests, containerId) {
     const container = document.getElementById(containerId);
-    
+
     if (!requests || requests.length === 0) {
         container.innerHTML = '<p class="no-requests">No requests yet</p>';
         return;
     }
-    
+
     container.innerHTML = requests.map(req => `
         <div class="request-item">
             <div class="request-header">
@@ -350,22 +353,28 @@ function displayRequests(requests, containerId) {
 }
 
 async function processRequest(requestId) {
-    if (!confirm('Process this request? This will start the download.')) return;
-    
+    console.log(`Processing request ${requestId}...`);
+    // Removed confirm for debugging
+
     try {
+        console.log('Sending POS request...');
         const response = await fetch(`${API_BASE}/requests/${requestId}/process`, {
             method: 'POST'
         });
-        
+        console.log('Response received:', response.status);
+
         if (response.ok) {
             showMessage('Request processing started', 'success');
             loadRequests();
         } else {
-            const data = await response.json();
-            showMessage(data.error || 'Failed to process request', 'error');
+            const data = await response.json().catch(() => ({}));
+            const errorMsg = data.error || `Server returned ${response.status}: ${response.statusText}`;
+            showMessage(errorMsg, 'error');
+            console.error('Process error:', errorMsg);
         }
     } catch (error) {
-        showMessage('Network error', 'error');
+        showMessage('Network error: ' + error.message, 'error');
+        console.error('Network error:', error);
     }
 }
 
@@ -374,7 +383,7 @@ async function loadSettings() {
     try {
         const response = await fetch(`${API_BASE}/admin/settings`);
         const data = await response.json();
-        
+
         if (response.ok) {
             const settings = data.settings;
             document.getElementById('jellyfinUrl').value = settings.jellyfin_url || '';
@@ -391,7 +400,7 @@ async function loadSettings() {
 
 async function handleSaveSettings(e) {
     e.preventDefault();
-    
+
     const settings = {
         jellyfin_url: document.getElementById('jellyfinUrl').value,
         primary_service: document.getElementById('primaryService').value,
@@ -400,14 +409,14 @@ async function handleSaveSettings(e) {
         output_path: document.getElementById('outputPath').value,
         path_pattern: document.getElementById('pathPattern').value
     };
-    
+
     try {
         const response = await fetch(`${API_BASE}/admin/settings`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(settings)
         });
-        
+
         if (response.ok) {
             showMessage('Settings saved successfully', 'success');
         } else {
@@ -424,7 +433,7 @@ async function handleTestJellyfin() {
             method: 'POST'
         });
         const data = await response.json();
-        
+
         if (data.success) {
             showMessage(`Jellyfin connected: ${data.info.server_name} v${data.info.version}`, 'success');
         } else {
@@ -437,13 +446,13 @@ async function handleTestJellyfin() {
 
 async function handleSyncJellyfin() {
     if (!confirm('Sync Jellyfin library? This may take a while.')) return;
-    
+
     try {
         const response = await fetch(`${API_BASE}/admin/jellyfin/sync`, {
             method: 'POST'
         });
         const data = await response.json();
-        
+
         if (response.ok) {
             showMessage(data.message, 'success');
         } else {
@@ -471,9 +480,9 @@ function showMessage(message, type) {
     messageDiv.style.right = '20px';
     messageDiv.style.zIndex = '9999';
     messageDiv.style.maxWidth = '400px';
-    
+
     document.body.appendChild(messageDiv);
-    
+
     setTimeout(() => messageDiv.remove(), 5000);
 }
 
@@ -481,6 +490,22 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function startPolling() {
+    if (refreshInterval) return;
+    refreshInterval = setInterval(() => {
+        if (currentUser) {
+            loadRequests();
+        }
+    }, 5000);
+}
+
+function stopPolling() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+    }
 }
 
 // Make functions globally available

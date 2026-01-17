@@ -116,7 +116,12 @@ riparr/
 
 5. **Run the application**
    ```bash
-   python backend/app.py
+   FLASK_APP=backend/app.py flask run
+   ```
+
+   or with debug mode:
+   ```bash
+   FLASK_APP=backend/app.py flask run --debug
    ```
 
 6. **Access the application**
@@ -130,12 +135,18 @@ riparr/
 
 ### Docker Deployment
 
-1. **Build and run with Docker Compose**
+1. **Build and run with Podman Compose**
    ```bash
-   docker-compose up -d
+   podman compose up -d
    ```
 
-2. **Configure volumes in docker-compose.yml**
+2. **Seed DB on first run**
+   ```bash
+   podman compose run --rm riparr flask init-db
+   ```
+
+
+3. **Configure volumes in docker-compose.yml**
    ```yaml
    volumes:
      - riparr-data:/app/data                    # Database and app data
@@ -143,12 +154,12 @@ riparr/
      - /path/to/config:/app/config              # Streamrip config
    ```
 
-3. **Access the application**
+4. **Access the application**
    Open your browser and navigate to `http://localhost:5000`
 
-4. **Stop the application**
+5. **Stop the application**
    ```bash
-   docker-compose down
+   podman compose down
    ```
 
 ## Configuration

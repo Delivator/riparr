@@ -21,16 +21,15 @@ services:
       - ${CONFIG_PATH:-./config}:/app/config
     # restart: unless-stopped
 
-  # jellyfin:
-  #   container_name: jellyfin
-  #   volumes:
-  #     - jellyfin-config:/config
-  #     - jellyfin-cache:/cache
-  #     - jellyfin-media:/media
-  #   # network_mode: host
-  #   ports:
-  #     - "8096:8096" # Expose Jellyfin port to the host
-  #   image: jellyfin/jellyfin:10.10.7
+  jellyfin:
+    container_name: jellyfin
+    volumes:
+      - jellyfin-config:/config
+      - jellyfin-cache:/cache
+      - jellyfin-media:/media
+    ports:
+      - "8096:8096" # Expose Jellyfin port to the host
+    image: jellyfin/jellyfin:10.11.5
 
 volumes:
   riparr-data:
