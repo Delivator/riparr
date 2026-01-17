@@ -43,4 +43,5 @@ htmlcov/
 tests/
 
 # Database
-instance/riparr.db
+instance/riparr.dbmusic/
+tmp/
