@@ -41,3 +41,6 @@ LICENSE
 .coverage
 htmlcov/
 tests/
+
+# Database
+instance/riparr.db
