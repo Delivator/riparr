@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riparr - Music Requester</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Login/Register Screen -->
+    <div id="authScreen" class="auth-screen">
+        <div class="auth-container">
+            <div class="auth-header">
+                <h1>🎵 Riparr</h1>
+                <p>Music Request and Download Management</p>
+            </div>
+            
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Login</button>
+                <button class="auth-tab" data-tab="register">Register</button>
+            </div>
+            
+            <!-- Login Form -->
+            <form id="loginForm" class="auth-form">
+                <div class="form-group">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginProvider">Authentication Provider</label>
+                    <select id="loginProvider" name="provider">
+                        <option value="local">Local</option>
+                        <option value="jellyfin">Jellyfin</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary">Login</button>
+                <div id="loginError" class="error-message" style="display: none;"></div>
+            </form>
+            
+            <!-- Register Form -->
+            <form id="registerForm" class="auth-form" style="display: none;">
+                <div class="form-group">
+                    <label for="registerUsername">Username</label>
+                    <input type="text" id="registerUsername" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerEmail">Email (optional)</label>
+                    <input type="email" id="registerEmail" name="email">
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Password</label>
+                    <input type="password" id="registerPassword" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerPasswordConfirm">Confirm Password</label>
+                    <input type="password" id="registerPasswordConfirm" name="passwordConfirm" required>
+                </div>
+                <button type="submit" class="btn-primary">Register</button>
+                <div id="registerError" class="error-message" style="display: none;"></div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Main Application -->
+    <div id="mainApp" class="main-app" style="display: none;">
+        <nav class="navbar">
+            <div class="navbar-brand">
+                <h1>🎵 Riparr</h1>
+            </div>
+            <div class="navbar-user">
+                <span id="userName"></span>
+                <button id="logoutBtn" class="btn-secondary">Logout</button>
+            </div>
+        </nav>
+        
+        <div class="container">
+            <!-- Navigation Tabs -->
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-section="search">Search & Request</button>
+                <button class="nav-tab" data-section="requests">My Requests</button>
+                <button class="nav-tab admin-only" data-section="admin" style="display: none;">Admin</button>
+            </div>
+            
+            <!-- Search Section -->
+            <section id="searchSection" class="section active">
+                <div class="card">
+                    <h2>Search for Music</h2>
+                    
+                    <div class="search-container">
+                        <div class="form-row">
+                            <div class="form-group flex-2">
+                                <label for="searchQuery">Search Query</label>
+                                <input type="text" id="searchQuery" placeholder="Enter song, album, or artist name">
+                            </div>
+                            <div class="form-group flex-1">
+                                <label for="searchType">Type</label>
+                                <select id="searchType">
+                                    <option value="song">Song</option>
+                                    <option value="album">Album</option>
+                                    <option value="artist">Artist</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button id="searchBtn" class="btn-primary">Search</button>
+                    </div>
+                    
+                    <div id="searchResults" class="search-results"></div>
+                </div>
+                
+                <div class="card">
+                    <h2>Quick Request</h2>
+                    <form id="quickRequestForm">
+                        <div class="form-group">
+                            <label for="requestTitle">Title *</label>
+                            <input type="text" id="requestTitle" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group flex-1">
+                                <label for="requestArtist">Artist</label>
+                                <input type="text" id="requestArtist">
+                            </div>
+                            <div class="form-group flex-1">
+                                <label for="requestAlbum">Album</label>
+                                <input type="text" id="requestAlbum">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="requestType">Type</label>
+                            <select id="requestType">
+                                <option value="song">Song</option>
+                                <option value="album">Album</option>
+                                <option value="artist">Artist</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-primary">Submit Request</button>
+                    </form>
+                </div>
+            </section>
+            
+            <!-- Requests Section -->
+            <section id="requestsSection" class="section">
+                <div class="card">
+                    <h2>My Requests</h2>
+                    <button id="refreshRequestsBtn" class="btn-secondary">Refresh</button>
+                    <div id="requestsList" class="requests-list"></div>
+                </div>
+            </section>
+            
+            <!-- Admin Section -->
+            <section id="adminSection" class="section admin-only" style="display: none;">
+                <div class="card">
+                    <h2>Settings</h2>
+                    <form id="settingsForm">
+                        <h3>Jellyfin Configuration</h3>
+                        <div class="form-group">
+                            <label for="jellyfinUrl">Jellyfin URL</label>
+                            <input type="text" id="jellyfinUrl" placeholder="http://your-server:8096">
+                        </div>
+                        <div class="form-row">
+                            <button type="button" id="testJellyfinBtn" class="btn-secondary">Test Connection</button>
+                            <button type="button" id="syncJellyfinBtn" class="btn-secondary">Sync Library</button>
+                        </div>
+                        
+                        <h3>Streaming Services</h3>
+                        <div class="form-row">
+                            <div class="form-group flex-1">
+                                <label for="primaryService">Primary Service</label>
+                                <select id="primaryService">
+                                    <option value="qobuz">Qobuz</option>
+                                    <option value="deezer">Deezer</option>
+                                    <option value="tidal">Tidal</option>
+                                </select>
+                            </div>
+                            <div class="form-group flex-1">
+                                <label for="fallbackService">Fallback Service</label>
+                                <select id="fallbackService">
+                                    <option value="deezer">Deezer</option>
+                                    <option value="qobuz">Qobuz</option>
+                                    <option value="tidal">Tidal</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <h3>Download Settings</h3>
+                        <div class="form-group">
+                            <label for="downloadQuality">Quality</label>
+                            <select id="downloadQuality">
+                                <option value="3">Highest (Lossless)</option>
+                                <option value="2">High (320kbps)</option>
+                                <option value="1">Medium (128kbps)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="outputPath">Output Path</label>
+                            <input type="text" id="outputPath" placeholder="/media/Music">
+                        </div>
+                        <div class="form-group">
+                            <label for="pathPattern">Path Pattern</label>
+                            <input type="text" id="pathPattern" placeholder="{artist}/{artist} - {title}">
+                            <small>Available: {artist}, {title}, {album}</small>
+                        </div>
+                        
+                        <button type="submit" class="btn-primary">Save Settings</button>
+                    </form>
+                </div>
+                
+                <div class="card">
+                    <h2>All Requests</h2>
+                    <div id="adminRequestsList" class="requests-list"></div>
+                </div>
+            </section>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
