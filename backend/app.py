@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 # Ensure logger specifically for this module is also outputting
 logger.propagate = True
 # Force unbuffered logging if possible or just log startup
+# Live-reload verification comment
 logger.info("Riparr starting up...")
 
 
@@ -67,6 +68,15 @@ def init_db_command():
     # We must be inside the app context to talk to the DB
     with app.app_context():
         
+        # --- Step 0: Ensure Directory Exists ---
+        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI')
+        if db_uri and db_uri.startswith('sqlite:///'):
+            db_path = db_uri.replace('sqlite:///', '')
+            db_dir = os.path.dirname(db_path)
+            if db_dir and not os.path.exists(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
+                print(f"Created database directory: {db_dir}")
+
         # --- Step 1: Create Tables ---
         try:
             db.create_all()

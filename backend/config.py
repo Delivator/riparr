@@ -5,8 +5,23 @@ class Config:
     # Flask
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
     
+    # Project root (one level up from backend/)
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    
     # Database
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///riparr.db')
+    db_url = os.environ.get('DATABASE_URL')
+    if not db_url:
+        # Default to instance/riparr.db in project root
+        instance_dir = os.path.join(BASE_DIR, 'instance')
+        os.makedirs(instance_dir, exist_ok=True)
+        db_path = os.path.join(instance_dir, 'riparr.db')
+        db_url = f'sqlite:///{db_path}'
+    elif db_url.startswith('sqlite:///instance/'):
+        # Convert relative instance path to absolute
+        db_path = os.path.join(BASE_DIR, 'instance', db_url.replace('sqlite:///instance/', ''))
+        db_url = f'sqlite:///{db_path}'
+    
+    SQLALCHEMY_DATABASE_URI = db_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Flask-Login

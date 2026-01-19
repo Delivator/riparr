@@ -1,0 +1,11 @@
+services:
+  app:
+    command: ["flask", "run", "--host=0.0.0.0", "--port=5000", "--debug"]
+    environment:
+      - FLASK_DEBUG=true
+      - DATABASE_URL=sqlite:////app/data/riparr.db
+    volumes:
+      - ./backend:/app/backend:Z
+      - ./frontend:/app/frontend:Z
+      - ./instance:/app/data:Z
+      - ./config:/app/config:Z

@@ -247,6 +247,12 @@ async function requestFromSearch(type, title, artist, mbId) {
         musicbrainz_id: mbId
     };
 
+    // Show loading state on button
+    const btn = event.target;
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = 'Requesting...';
+
     try {
         const response = await fetch(`${API_BASE}/requests`, {
             method: 'POST',
@@ -259,15 +265,21 @@ async function requestFromSearch(type, title, artist, mbId) {
         if (response.ok) {
             if (data.available) {
                 showMessage('Content already available in Jellyfin!', 'success');
+                btn.innerText = 'Available';
             } else {
                 showMessage('Request submitted successfully!', 'success');
+                btn.innerText = 'Requested';
                 loadRequests();
             }
         } else {
             showMessage(data.error || 'Request failed', 'error');
+            btn.innerText = originalText;
+            btn.disabled = false;
         }
     } catch (error) {
         showMessage('Network error', 'error');
+        btn.innerText = originalText;
+        btn.disabled = false;
     }
 }
 
@@ -321,9 +333,16 @@ async function loadRequests() {
 }
 
 async function loadAllRequests() {
-    // In admin view, this would load all requests
-    loadRequests();
-    displayRequests([], 'adminRequestsList');
+    try {
+        const response = await fetch(`${API_BASE}/requests`);
+        const data = await response.json();
+
+        if (response.ok) {
+            displayRequests(data.requests, 'adminRequestsList');
+        }
+    } catch (error) {
+        console.error('Failed to load all requests:', error);
+    }
 }
 
 function displayRequests(requests, containerId) {
