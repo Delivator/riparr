@@ -31,8 +31,5 @@ ENV FLASK_APP=backend/app.py
 ENV PYTHONUNBUFFERED=1
 ENV DATABASE_URL=sqlite:////app/data/riparr.db
 
-# Create volume for persistent data
-VOLUME ["/app/data", "/media/Music"]
-
 # Run the application with gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "60", "backend.app:app"]

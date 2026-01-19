@@ -187,40 +187,80 @@ class DownloadService:
             return False, "Download path not found"
         
         try:
-            # Build destination path using pattern
-            dest_path = self._build_destination_path(request)
-            
-            # Create destination directory
-            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-            
-            # Move files
-            if os.path.isdir(request.download_path):
-                # Move entire directory
-                if os.path.exists(dest_path):
-                    shutil.rmtree(dest_path)
-                shutil.move(request.download_path, dest_path)
+            # Check if the downloader already created a folder structure (common for albums)
+            # If so, we want to NOT nest it inside our own pattern.
+            has_subfolders = False
+            top_level_items = os.listdir(request.download_path)
+            for item in top_level_items:
+                if os.path.isdir(os.path.join(request.download_path, item)):
+                    has_subfolders = True
+                    break
+
+            if has_subfolders and request.content_type.value == 'album':
+                logger.info("Detected pre-structured album download. Moving contents directly to output path.")
+                # We move each item from the temp dir to the output_path root
+                # This respects Streamrip's structure (Artist/Album...)
+                for item in top_level_items:
+                    src = os.path.join(request.download_path, item)
+                    dst = os.path.join(self.output_path, item)
+                    
+                    if os.path.isdir(src):
+                        if os.path.exists(dst):
+                            # Merge directories if they exist
+                            self._merge_directories(src, dst)
+                        else:
+                            shutil.move(src, dst)
+                    else:
+                        shutil.move(src, dst)
+                
+                # Update request with the primary directory (usually artist name)
+                # This isn't perfect for the DB, but good enough for tracking
+                request.download_path = os.path.join(self.output_path, top_level_items[0])
             else:
-                # Move single file
-                shutil.move(request.download_path, dest_path)
-            
-            request.download_path = dest_path
+                # Build destination path using pattern for tracks or unstructured albums
+                dest_path = self._build_destination_path(request)
+                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                
+                if os.path.isdir(request.download_path):
+                    if os.path.exists(dest_path):
+                        shutil.rmtree(dest_path)
+                    shutil.move(request.download_path, dest_path)
+                else:
+                    shutil.move(request.download_path, dest_path)
+                
+                request.download_path = dest_path
             
             # Calculate file size
-            if os.path.isdir(dest_path):
+            if os.path.isdir(request.download_path):
                 total_size = sum(
                     os.path.getsize(os.path.join(dirpath, filename))
-                    for dirpath, dirnames, filenames in os.walk(dest_path)
+                    for dirpath, dirnames, filenames in os.walk(request.download_path)
                     for filename in filenames
                 )
                 request.file_size = total_size
             else:
-                request.file_size = os.path.getsize(dest_path)
+                request.file_size = os.path.getsize(request.download_path)
             
             db.session.commit()
-            
             return True, None
         except Exception as e:
+            logger.exception("Failed to move files to destination")
             return False, str(e)
+
+    def _merge_directories(self, src, dst):
+        """Recursively merge directories from src to dst"""
+        for item in os.listdir(src):
+            s = os.path.join(src, item)
+            d = os.path.join(dst, item)
+            if os.path.isdir(s):
+                if os.path.exists(d):
+                    self._merge_directories(s, d)
+                else:
+                    shutil.move(s, d)
+            else:
+                if os.path.exists(d):
+                    os.remove(d)
+                shutil.move(s, d)
     
     def _build_destination_path(self, request):
         """Build destination path using pattern"""
