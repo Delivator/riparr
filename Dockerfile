@@ -31,5 +31,5 @@ ENV FLASK_APP=backend/app.py
 ENV PYTHONUNBUFFERED=1
 ENV DATABASE_URL=sqlite:////app/data/riparr.db
 
-# Run the application with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "60", "backend.app:app"]
+# Run the application with gunicorn and eventlet for WebSocket support
+CMD ["gunicorn", "--worker-class", "eventlet", "--workers", "1", "--bind", "0.0.0.0:5000", "backend.app:app"]

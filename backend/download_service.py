@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class DownloadService:
     def __init__(self, config_path=None, primary_service=None, fallback_service=None, 
-                 temp_path=None, output_path=None, path_pattern=None):
+                 temp_path=None, output_path=None, path_pattern=None, socketio=None):
         """
         Initialize DownloadService with optional configuration.
         If parameters are None, they will be loaded from Flask config on first use.
@@ -25,6 +25,16 @@ class DownloadService:
         self.temp_path = temp_path or '/tmp/riparr/downloads'
         self.output_path = output_path or '/media/Music'
         self.path_pattern = path_pattern or '{artist}/{artist} - {title}'
+        self.socketio = socketio
+
+    def _emit_status_update(self, request):
+        """Emit status update via WebSocket"""
+        if self.socketio:
+            try:
+                self.socketio.emit('request_update', request.to_dict())
+                logger.info(f"Emitted status update for request {request.id}: {request.status.value}")
+            except Exception as e:
+                logger.error(f"Failed to emit status update: {e}")
     
     def process_request(self, request_id):
         """Process a music request through the full workflow"""
@@ -37,6 +47,7 @@ class DownloadService:
             # Update status to searching
             request.status = RequestStatus.SEARCHING
             db.session.commit()
+            self._emit_status_update(request)
             
             # Search and get metadata
             success, error = self._search_content(request)
@@ -44,24 +55,28 @@ class DownloadService:
                 request.status = RequestStatus.FAILED
                 request.error_message = error
                 db.session.commit()
+                self._emit_status_update(request)
                 return False, error
             
             # Download content
             logger.info(f"Request {request_id}: Moving to DOWNLOADING status")
             request.status = RequestStatus.DOWNLOADING
             db.session.commit()
+            self._emit_status_update(request)
             
             success, error = self._download_content(request)
             if not success:
                 request.status = RequestStatus.FAILED
                 request.error_message = error
                 db.session.commit()
+                self._emit_status_update(request)
                 return False, error
             
             # Post-process with Picard
             if current_app.config.get('PICARD_ENABLED', True):
                 request.status = RequestStatus.PROCESSING
                 db.session.commit()
+                self._emit_status_update(request)
                 
                 success, error = self._process_metadata(request)
                 if not success:
@@ -74,12 +89,14 @@ class DownloadService:
                 request.status = RequestStatus.FAILED
                 request.error_message = error
                 db.session.commit()
+                self._emit_status_update(request)
                 return False, error
             
             # Mark as completed
             request.status = RequestStatus.COMPLETED
             request.completed_at = datetime.utcnow()
             db.session.commit()
+            self._emit_status_update(request)
             
             return True, None
         
@@ -88,6 +105,7 @@ class DownloadService:
             request.status = RequestStatus.FAILED
             request.error_message = str(e)
             db.session.commit()
+            self._emit_status_update(request)
             return False, str(e)
     
     def _search_content(self, request):

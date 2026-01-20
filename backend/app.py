@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, render_template, request, session
 from flask_cors import CORS
+from flask_socketio import SocketIO
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from sqlalchemy.exc import IntegrityError, OperationalError
 import os
@@ -47,6 +48,7 @@ app.config.from_object(Config)
 # Initialize extensions
 CORS(app)
 db.init_app(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
@@ -251,6 +253,9 @@ def create_request():
     db.session.add(new_request)
     db.session.commit()
     
+    # Emit update for new request
+    socketio.emit('request_update', new_request.to_dict())
+    
     # Start processing in background (in production, use Celery or similar)
     # For now, we'll just return the request
     
@@ -284,7 +289,8 @@ def process_request(request_id):
         fallback_service=app.config.get('FALLBACK_STREAMING_SERVICE', 'deezer'),
         temp_path=app.config.get('TEMP_DOWNLOAD_PATH', '/tmp/riparr/downloads'),
         output_path=app.config.get('MUSIC_OUTPUT_PATH', '/media/Music'),
-        path_pattern=app.config.get('MUSIC_PATH_PATTERN', '{artist}/{artist} - {title}')
+        path_pattern=app.config.get('MUSIC_PATH_PATTERN', '{artist}/{artist} - {title}'),
+        socketio=socketio
     )
     import threading
     logger.info(f"Starting background thread for request {request_id}")
@@ -467,5 +473,5 @@ def test_jellyfin():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    socketio.run(app, host='0.0.0.0', port=port, debug=debug)
 

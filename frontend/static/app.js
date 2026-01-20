@@ -4,7 +4,7 @@ const API_BASE = '/api';
 // State
 let currentUser = null;
 let currentSection = 'search';
-let refreshInterval = null;
+let socket = null;
 
 // DOM elements
 const authScreen = document.getElementById('authScreen');
@@ -81,7 +81,7 @@ async function checkAuth() {
             const data = await response.json();
             currentUser = data.user;
             showMainApp();
-            startPolling();
+            initSocket();
         } else {
             showAuthScreen();
         }
@@ -173,7 +173,10 @@ async function handleLogout() {
     try {
         await fetch(`${API_BASE}/auth/logout`, { method: 'POST' });
         currentUser = null;
-        stopPolling();
+        if (socket) {
+            socket.disconnect();
+            socket = null;
+        }
         showAuthScreen();
     } catch (error) {
         console.error('Logout error:', error);
@@ -620,20 +623,38 @@ function escapeHtml(text) {
         .replace(/'/g, "&#039;");
 }
 
-function startPolling() {
-    if (refreshInterval) return;
-    refreshInterval = setInterval(() => {
-        if (currentUser) {
-            loadRequests();
-        }
-    }, 5000);
-}
+// Socket.io Functions
+function initSocket() {
+    if (socket) return;
 
-function stopPolling() {
-    if (refreshInterval) {
-        clearInterval(refreshInterval);
-        refreshInterval = null;
-    }
+    socket = io({
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: Infinity
+    });
+
+    socket.on('connect', () => {
+        console.log('Socket.io connected');
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Socket.io disconnected');
+    });
+
+    socket.on('request_update', (data) => {
+        console.log('Request status updated via socket:', data);
+        // Refresh the appropriate list depending on current view
+        if (currentSection === 'requests') {
+            loadRequests();
+        } else if (currentSection === 'admin') {
+            loadAllRequests();
+        }
+    });
+
+    socket.on('error', (error) => {
+        console.error('Socket.io error:', error);
+    });
 }
 
 // Persistence
