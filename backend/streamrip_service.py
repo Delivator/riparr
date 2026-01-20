@@ -131,6 +131,7 @@ class StreamripService:
             'title': item.get('title') or item.get('name'),
             'artist': self._extract_artist(item),
             'album': self._extract_album_title(item),
+            'album_id': str(item.get('album', {}).get('id')) if isinstance(item.get('album'), dict) else None,
             'duration': item.get('duration'),
             'duration_ms': item.get('duration') * 1000 if isinstance(item.get('duration'), (int, float)) else None,
             'quality': quality_label,
@@ -146,15 +147,41 @@ class StreamripService:
         return str(album) if album else None
 
     def _extract_artist(self, result):
+        # Try direct artist field
         if 'artist' in result:
             artist = result['artist']
             if isinstance(artist, dict):
                 return artist.get('name', '')
             return str(artist)
-        elif 'artists' in result and result['artists']:
+            
+        # Try performer field (common in Qobuz for tracks)
+        if 'performer' in result:
+            performer = result['performer']
+            if isinstance(performer, dict):
+                return performer.get('name', '')
+            return str(performer)
+            
+        # Try artists list
+        if 'artists' in result and result['artists']:
             if isinstance(result['artists'][0], dict):
                 return result['artists'][0].get('name', '')
             return str(result['artists'][0])
+            
+        # Try performers list
+        if 'performers' in result and result['performers']:
+            # Sometimes performers is a string list? Or list of dicts?
+            # Usually it's better to stick to main artist if possible.
+            # But if nothing else...
+            pass
+            
+        # Fallback to album artist if track has no artist
+        if 'album' in result and isinstance(result['album'], dict):
+            album_artist = result['album'].get('artist')
+            if isinstance(album_artist, dict):
+                return album_artist.get('name', '')
+            if album_artist:
+                return str(album_artist)
+
         return 'Unknown Artist'
 
     def _extract_cover_url(self, item, service):

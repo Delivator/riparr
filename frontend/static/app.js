@@ -302,6 +302,17 @@ function displaySearchResults(results, type, searchServices) {
                                 data-album="${escapeHtml(album)}">
                                 Request ${type}
                             </button>
+                            ${type === 'song' && result.album_id ? `
+                            <button class="btn-secondary btn-block request-btn" style="margin-top: 0.5rem;" 
+                                data-type="album"
+                                data-title="${escapeHtml(album)}"
+                                data-artist="${escapeHtml(artist)}"
+                                data-id="${result.album_id}"
+                                data-service="${service}"
+                                data-album="${escapeHtml(album)}">
+                                Request Album
+                            </button>
+                            ` : ''}
                         </div>
                     </div>
                 </div>

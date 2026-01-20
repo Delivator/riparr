@@ -50,11 +50,12 @@ db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-@app.before_request
-def log_request_info():
-    app.logger.info('Headers: %s', request.headers)
-    app.logger.info('URL: %s', request.url)
-    app.logger.info('Method: %s', request.method)
+# Debug logging
+# @app.before_request
+# def log_request_info():
+#     app.logger.info('Headers: %s', request.headers)
+#     app.logger.info('URL: %s', request.url)
+#     app.logger.info('Method: %s', request.method)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -341,6 +342,9 @@ def search_streaming():
     """Search streaming services"""
     query = request.args.get('query')
     content_type = request.args.get('type', 'track')
+    if content_type == 'song':
+        content_type = 'track'
+        
     services_param = request.args.get('services')
     
     if not query:
