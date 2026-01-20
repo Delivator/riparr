@@ -241,7 +241,10 @@ def create_request():
         content_type=ContentType[content_type.upper()],
         title=title,
         artist=artist,
-        album=album
+        album=album,
+        musicbrainz_id=data.get('musicbrainz_id'),
+        streaming_service=data.get('streaming_service'),
+        streaming_url=data.get('streaming_url')
     )
     
     db.session.add(new_request)
@@ -338,6 +341,7 @@ def search_streaming():
     """Search streaming services"""
     query = request.args.get('query')
     content_type = request.args.get('type', 'track')
+    services_param = request.args.get('services')
     
     if not query:
         return jsonify({'error': 'Query required'}), 400
@@ -347,12 +351,28 @@ def search_streaming():
         primary_service=app.config.get('PRIMARY_STREAMING_SERVICE', 'qobuz'),
         fallback_service=app.config.get('FALLBACK_STREAMING_SERVICE', 'deezer')
     )
-    results, service, error = streamrip_service.smart_search(query, content_type)
     
-    if error:
+    # Determine which services to search
+    if services_param:
+        services = [s.strip() for s in services_param.split(',') if s.strip()]
+    else:
+        # Default to primary and fallback
+        services = [streamrip_service.primary_service]
+        if streamrip_service.fallback_service:
+            services.append(streamrip_service.fallback_service)
+
+    # Use parallel search
+    import asyncio
+    results, error = asyncio.run(streamrip_service.parallel_search(query, services, content_type))
+    
+    if not results and error:
         return jsonify({'error': error}), 500
     
-    return jsonify({'results': results, 'service': service})
+    return jsonify({
+        'results': results, 
+        'services_searched': services,
+        'error': error
+    })
 
 @app.route('/api/search/jellyfin')
 @login_required

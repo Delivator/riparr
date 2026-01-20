@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Riparr - Music Requester</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+
 <body>
     <!-- Login/Register Screen -->
     <div id="authScreen" class="auth-screen">
@@ -14,12 +17,12 @@
                 <h1>🎵 Riparr</h1>
                 <p>Music Request and Download Management</p>
             </div>
-            
+
             <div class="auth-tabs">
                 <button class="auth-tab active" data-tab="login">Login</button>
                 <button class="auth-tab" data-tab="register">Register</button>
             </div>
-            
+
             <!-- Login Form -->
             <form id="loginForm" class="auth-form">
                 <div class="form-group">
@@ -40,7 +43,7 @@
                 <button type="submit" class="btn-primary">Login</button>
                 <div id="loginError" class="error-message" style="display: none;"></div>
             </form>
-            
+
             <!-- Register Form -->
             <form id="registerForm" class="auth-form" style="display: none;">
                 <div class="form-group">
@@ -64,7 +67,7 @@
             </form>
         </div>
     </div>
-    
+
     <!-- Main Application -->
     <div id="mainApp" class="main-app" style="display: none;">
         <nav class="navbar">
@@ -76,7 +79,7 @@
                 <button id="logoutBtn" class="btn-secondary">Logout</button>
             </div>
         </nav>
-        
+
         <div class="container">
             <!-- Navigation Tabs -->
             <div class="nav-tabs">
@@ -84,12 +87,12 @@
                 <button class="nav-tab" data-section="requests">My Requests</button>
                 <button class="nav-tab admin-only" data-section="admin" style="display: none;">Admin</button>
             </div>
-            
+
             <!-- Search Section -->
             <section id="searchSection" class="section active">
                 <div class="card">
                     <h2>Search for Music</h2>
-                    
+
                     <div class="search-container">
                         <div class="form-row">
                             <div class="form-group flex-2">
@@ -105,12 +108,29 @@
                                 </select>
                             </div>
                         </div>
+                        <div class="form-group">
+                            <label>Search Services</label>
+                            <div class="service-selector">
+                                <label class="service-toggle">
+                                    <input type="checkbox" name="searchService" value="qobuz" checked>
+                                    <span>Qobuz</span>
+                                </label>
+                                <label class="service-toggle">
+                                    <input type="checkbox" name="searchService" value="deezer" checked>
+                                    <span>Deezer</span>
+                                </label>
+                                <label class="service-toggle">
+                                    <input type="checkbox" name="searchService" value="tidal">
+                                    <span>Tidal</span>
+                                </label>
+                            </div>
+                        </div>
                         <button id="searchBtn" class="btn-primary">Search</button>
                     </div>
-                    
+
                     <div id="searchResults" class="search-results"></div>
                 </div>
-                
+
                 <div class="card">
                     <h2>Quick Request</h2>
                     <form id="quickRequestForm">
@@ -140,7 +160,7 @@
                     </form>
                 </div>
             </section>
-            
+
             <!-- Requests Section -->
             <section id="requestsSection" class="section">
                 <div class="card">
@@ -149,7 +169,7 @@
                     <div id="requestsList" class="requests-list"></div>
                 </div>
             </section>
-            
+
             <!-- Admin Section -->
             <section id="adminSection" class="section admin-only" style="display: none;">
                 <div class="card">
@@ -164,7 +184,7 @@
                             <button type="button" id="testJellyfinBtn" class="btn-secondary">Test Connection</button>
                             <button type="button" id="syncJellyfinBtn" class="btn-secondary">Sync Library</button>
                         </div>
-                        
+
                         <h3>Streaming Services</h3>
                         <div class="form-row">
                             <div class="form-group flex-1">
@@ -184,7 +204,7 @@
                                 </select>
                             </div>
                         </div>
-                        
+
                         <h3>Download Settings</h3>
                         <div class="form-group">
                             <label for="downloadQuality">Quality</label>
@@ -203,11 +223,11 @@
                             <input type="text" id="pathPattern" placeholder="{artist}/{artist} - {title}">
                             <small>Available: {artist}, {title}, {album}</small>
                         </div>
-                        
+
                         <button type="submit" class="btn-primary">Save Settings</button>
                     </form>
                 </div>
-                
+
                 <div class="card">
                     <h2>All Requests</h2>
                     <div id="adminRequestsList" class="requests-list"></div>
@@ -215,7 +235,8 @@
             </section>
         </div>
     </div>
-    
+
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
+
 </html>

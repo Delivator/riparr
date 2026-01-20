@@ -48,6 +48,21 @@ function setupEventListeners() {
     document.getElementById('settingsForm')?.addEventListener('submit', handleSaveSettings);
     document.getElementById('testJellyfinBtn')?.addEventListener('click', handleTestJellyfin);
     document.getElementById('syncJellyfinBtn')?.addEventListener('click', handleSyncJellyfin);
+
+    // Delegated listener for search results
+    document.getElementById('searchResults')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.request-btn');
+        if (btn) {
+            requestFromSearch(
+                btn.dataset.type,
+                btn.dataset.title,
+                btn.dataset.artist,
+                btn.dataset.id,
+                btn.dataset.service,
+                btn.dataset.album
+            );
+        }
+    });
 }
 
 // Auth functions
@@ -199,52 +214,117 @@ async function handleSearch() {
     const query = document.getElementById('searchQuery').value;
     const type = document.getElementById('searchType').value;
 
+    // Get selected services
+    const serviceCheckboxes = document.querySelectorAll('input[name="searchService"]:checked');
+    const selectedServices = Array.from(serviceCheckboxes).map(cb => cb.value);
+
     if (!query) return;
+    if (selectedServices.length === 0) {
+        showMessage('Please select at least one service to search', 'error');
+        return;
+    }
 
     const resultsDiv = document.getElementById('searchResults');
-    resultsDiv.innerHTML = '<p>Searching...</p>';
+    resultsDiv.innerHTML = `
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Searching ${selectedServices.join(' & ')}...</p>
+        </div>
+    `;
 
     try {
-        const response = await fetch(`${API_BASE}/search/musicbrainz?query=${encodeURIComponent(query)}&type=${type}`);
+        const servicesParam = selectedServices.join(',');
+        const response = await fetch(`${API_BASE}/search/streaming?query=${encodeURIComponent(query)}&type=${type}&services=${servicesParam}`);
         const data = await response.json();
 
         if (response.ok) {
-            displaySearchResults(data.results, type);
+            displaySearchResults(data.results, type, selectedServices);
         } else {
             resultsDiv.innerHTML = `<p class="error-message">${data.error}</p>`;
         }
     } catch (error) {
-        resultsDiv.innerHTML = '<p class="error-message">Search failed</p>';
+        resultsDiv.innerHTML = '<p class="error-message">Search failed. Check your streaming service connection.</p>';
+        console.error('Search error:', error);
     }
 }
 
-function displaySearchResults(results, type) {
+function displaySearchResults(results, type, searchServices) {
     const resultsDiv = document.getElementById('searchResults');
+    const showSourceBadge = searchServices && searchServices.length > 1;
 
     if (!results || results.length === 0) {
-        resultsDiv.innerHTML = '<p class="no-requests">No results found</p>';
+        resultsDiv.innerHTML = `<p class="no-requests">No results found on ${searchServices.join(', ')}</p>`;
         return;
     }
 
-    resultsDiv.innerHTML = results.map(result => `
-        <div class="search-result-item">
-            <div class="search-result-info">
-                <h4>${escapeHtml(result.title || result.name)}</h4>
-                <p>${escapeHtml(result.artist || result.type || '')}</p>
-            </div>
-            <button class="btn-primary" onclick="requestFromSearch('${type}', '${escapeHtml(result.title || result.name)}', '${escapeHtml(result.artist || '')}', '${result.id}')">
-                Request
-            </button>
+    resultsDiv.innerHTML = `
+        <div class="search-results-grid">
+            ${results.map(result => {
+        const title = result.title || result.name;
+        const artist = result.artist || 'Unknown Artist';
+        const album = result.album || '';
+        const id = result.id;
+        const service = result.service;
+        const coverUrl = result.cover_url || '/static/img/default-cover.png';
+        const quality = result.quality || '';
+        const year = result.year || result.release_date?.substring(0, 4) || '';
+        const duration = result.duration ? formatDuration(result.duration) : '';
+
+        return `
+                <div class="search-card">
+                    <div class="search-card-cover">
+                        <img src="${coverUrl}" alt="${escapeHtml(title)}" onerror="this.src='/static/img/default-cover.png'">
+                        ${quality ? `<span class="badge badge-quality">${escapeHtml(quality)}</span>` : ''}
+                    </div>
+                    <div class="search-card-content">
+                        <div class="search-card-header">
+                            <h4 class="text-truncate" title="${escapeHtml(title)}">
+                                ${showSourceBadge ? `<span class="badge-source ${service}">${service}</span>` : ''}
+                                ${escapeHtml(title)}
+                            </h4>
+                            <p class="search-card-artist text-truncate">${escapeHtml(artist)}</p>
+                        </div>
+                        <div class="search-card-details">
+                            ${album ? `<p class="text-truncate"><span>Album:</span> ${escapeHtml(album)}</p>` : ''}
+                            <div class="search-card-meta">
+                                ${year ? `<span><i class="fas fa-calendar"></i> ${year}</span>` : ''}
+                                ${duration ? `<span><i class="fas fa-clock"></i> ${duration}</span>` : ''}
+                                ${result.track_count ? `<span><i class="fas fa-list"></i> ${result.track_count} tracks</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="search-card-actions">
+                            <button class="btn-primary btn-block request-btn" 
+                                data-type="${type}"
+                                data-title="${escapeHtml(title)}"
+                                data-artist="${escapeHtml(artist)}"
+                                data-id="${id}"
+                                data-service="${service}"
+                                data-album="${escapeHtml(album)}">
+                                Request ${type}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                `;
+    }).join('')}
         </div>
-    `).join('');
+    `;
 }
 
-async function requestFromSearch(type, title, artist, mbId) {
+function formatDuration(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+async function requestFromSearch(type, title, artist, serviceId, serviceName, album) {
     const formData = {
         content_type: type,
         title: title,
         artist: artist,
-        musicbrainz_id: mbId
+        album: album,
+        streaming_service: serviceName,
+        streaming_url: serviceId // We store the ID in streaming_url for now
     };
 
     // Show loading state on button
@@ -506,9 +586,14 @@ function showMessage(message, type) {
 }
 
 function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    if (!text) return '';
+    return text
+        .toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 function startPolling() {

@@ -118,14 +118,25 @@ class StreamripService:
         return []
 
     def _normalize_track(self, item, service):
+        # Extract quality info
+        quality = item.get('maximum_bit_depth') or item.get('quality')
+        sampling_rate = item.get('maximum_sampling_rate')
+        
+        quality_label = str(quality) if quality else "Unknown"
+        if quality and sampling_rate:
+            quality_label = f"{quality}B-{sampling_rate}kHz"
+
         return {
             'id': str(item.get('id')),
             'title': item.get('title') or item.get('name'),
             'artist': self._extract_artist(item),
             'album': self._extract_album_title(item),
             'duration': item.get('duration'),
-            'quality': item.get('maximum_bit_depth') or item.get('quality'),
+            'duration_ms': item.get('duration') * 1000 if isinstance(item.get('duration'), (int, float)) else None,
+            'quality': quality_label,
             'service': service,
+            'cover_url': self._extract_cover_url(item, service),
+            'release_date': item.get('release_date') or item.get('release_date_original'),
         }
 
     def _extract_album_title(self, item):
@@ -144,8 +155,59 @@ class StreamripService:
             if isinstance(result['artists'][0], dict):
                 return result['artists'][0].get('name', '')
             return str(result['artists'][0])
-        return ''
+        return 'Unknown Artist'
+
+    def _extract_cover_url(self, item, service):
+        """Extract cover image URL based on service response structure"""
+        if service == 'qobuz':
+            # Qobuz usually has image[ 'small', 'thumbnail', 'large' ]
+            image = item.get('image') or (item.get('album', {}).get('image') if isinstance(item.get('album'), dict) else None)
+            if isinstance(image, dict):
+                return image.get('large') or image.get('small') or image.get('thumbnail')
+        elif service == 'deezer':
+            # Deezer usually has album['cover_medium'] or cover_medium
+            album = item.get('album')
+            if isinstance(album, dict):
+                return album.get('cover_big') or album.get('cover_medium')
+            return item.get('cover_big') or item.get('cover_medium')
+        elif service == 'tidal':
+            # Tidal usually has cover or album['cover']
+            # Note: Tidal IDs are often used with a base URL
+            pass
+        return None
     
+    async def parallel_search(self, query, services, content_type='track', limit=10):
+        """Search multiple services in parallel"""
+        tasks = []
+        for service in services:
+            if content_type == 'track':
+                tasks.append(self.search_track_async(query, service, limit))
+            else:
+                tasks.append(self.search_album_async(query, service, limit))
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        all_results = []
+        errors = []
+        
+        for i, res in enumerate(results):
+            service = services[i]
+            if isinstance(res, Exception):
+                logger.error(f"Search failed for {service}: {res}")
+                errors.append(f"{service}: {str(res)}")
+            else:
+                service_results, error = res
+                if service_results:
+                    # Results are already normalized in the search_async methods
+                    all_results.extend(service_results)
+                if error:
+                    errors.append(f"{service}: {error}")
+        
+        # Sort results by relevance (if score is available) or just interleaved
+        # For now, let's just return the combined list.
+        
+        return all_results, None if not errors else "; ".join(errors)
+
     def search_track(self, query, service=None, limit=10):
         return asyncio.run(self.search_track_async(query, service, limit))
     
@@ -159,14 +221,23 @@ class StreamripService:
             for page in pages:
                 items = self._extract_search_items(page, service, 'album')
                 for item in items:
+                    # Extract quality info
+                    quality = item.get('maximum_bit_depth') or item.get('quality')
+                    sampling_rate = item.get('maximum_sampling_rate')
+                    quality_label = str(quality) if quality else "Unknown"
+                    if quality and sampling_rate:
+                        quality_label = f"{quality}B-{sampling_rate}kHz"
+
                     albums.append({
                         'id': str(item.get('id')),
                         'title': item.get('title') or item.get('name'),
                         'artist': self._extract_artist(item),
                         'year': item.get('year') or (item.get('release_date', '')[:4] if item.get('release_date') else None),
                         'track_count': item.get('tracks_count') or item.get('nb_tracks'),
-                        'quality': item.get('maximum_bit_depth') or item.get('quality'),
+                        'quality': quality_label,
                         'service': service,
+                        'cover_url': self._extract_cover_url(item, service),
+                        'release_date': item.get('release_date') or item.get('release_date_original'),
                     })
             
             return albums[:limit], None

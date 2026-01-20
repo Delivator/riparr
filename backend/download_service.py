@@ -91,28 +91,55 @@ class DownloadService:
             return False, str(e)
     
     def _search_content(self, request):
-        """Search for content using MusicBrainz and streaming services"""
-        # If we already have streaming URL from MusicBrainz, use it
-        if request.streaming_url:
-            return True, None
-        
-        # Search on streaming services using smart search
-        query = f"{request.title}"
-        if request.artist:
-            query += f" {request.artist}"
-        
-        content_type = 'track' if request.content_type.value == 'song' else 'album'
-        
-        results, service, error = self.streamrip_service.smart_search(query, content_type)
-        
-        if not results:
-            return False, error or "No results found"
-        
-        # Use the first result
-        best_match = results[0]
-        request.streaming_service = service
-        request.streaming_url = best_match.get('id')  # Store the ID for download
-        db.session.commit()
+        """Search for content using streaming services and match with MusicBrainz"""
+        # 1. Ensure we have a streaming URL and service
+        if not request.streaming_url or not request.streaming_service:
+            # Search on streaming services using smart search
+            query = f"{request.title}"
+            if request.artist:
+                query += f" {request.artist}"
+            
+            content_type = 'track' if request.content_type.value == 'song' else 'album'
+            
+            logger.info(f"Searching streaming services for: {query}")
+            results, service, error = self.streamrip_service.smart_search(query, content_type)
+            
+            if not results:
+                return False, error or "No results found on streaming services"
+            
+            # Use the first result
+            best_match = results[0]
+            request.streaming_service = service
+            request.streaming_url = best_match.get('id')
+            
+            # Update metadata from search result if missing
+            if not request.title and best_match.get('title'):
+                request.title = best_match.get('title')
+            if not request.artist and best_match.get('artist'):
+                request.artist = best_match.get('artist')
+            if not request.album and best_match.get('album'):
+                request.album = best_match.get('album')
+            
+            db.session.commit()
+
+        # 2. Try to match with MusicBrainz for better tagging if IDs are missing
+        if not request.musicbrainz_id and not request.musicbrainz_release_group_id:
+            logger.info(f"Attempting to match {request.title} - {request.artist} with MusicBrainz")
+            try:
+                if request.content_type.value == 'song':
+                    mb_results, mb_error = self.mb_service.search_song(request.title, request.artist, limit=1)
+                    if mb_results:
+                        request.musicbrainz_id = mb_results[0]['id']
+                        logger.info(f"Found MusicBrainz match for song: {request.musicbrainz_id}")
+                else:  # album
+                    mb_results, mb_error = self.mb_service.search_album(request.title, request.artist, limit=1)
+                    if mb_results:
+                        request.musicbrainz_release_group_id = mb_results[0]['id']
+                        logger.info(f"Found MusicBrainz match for album: {request.musicbrainz_release_group_id}")
+                
+                db.session.commit()
+            except Exception as e:
+                logger.warning(f"MusicBrainz matching failed: {e}")
         
         return True, None
     
