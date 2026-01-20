@@ -15,12 +15,14 @@ const registerForm = document.getElementById('registerForm');
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
+    loadPreferences();
     setupEventListeners();
 });
 
 // Setup event listeners
 function setupEventListeners() {
     // Auth tabs
+
     document.querySelectorAll('.auth-tab').forEach(tab => {
         tab.addEventListener('click', () => switchAuthTab(tab.dataset.tab));
     });
@@ -40,6 +42,12 @@ function setupEventListeners() {
     // Search
     document.getElementById('searchBtn')?.addEventListener('click', handleSearch);
     document.getElementById('quickRequestForm')?.addEventListener('submit', handleQuickRequest);
+
+    // Search Service Persistence
+    document.querySelectorAll('input[name="searchService"]').forEach(cb => {
+        cb.addEventListener('change', savePreferences);
+    });
+    document.getElementById('searchType')?.addEventListener('change', savePreferences);
 
     // Requests
     document.getElementById('refreshRequestsBtn')?.addEventListener('click', loadRequests);
@@ -446,18 +454,23 @@ function displayRequests(requests, containerId) {
 
     container.innerHTML = requests.map(req => `
         <div class="request-item">
-            <div class="request-header">
-                <span class="request-title">${escapeHtml(req.title)}</span>
-                <span class="request-status status-${req.status}">${req.status}</span>
+            <div class="request-main">
+                <div class="request-header">
+                    <span class="request-title">${escapeHtml(req.title)}</span>
+                    <span class="request-status status-${req.status}">${req.status}</span>
+                </div>
+                <div class="request-details">
+                    ${req.artist ? `<span><i class="fas fa-user"></i> ${escapeHtml(req.artist)}</span>` : ''}
+                    ${req.album ? `<span><i class="fas fa-compact-disc"></i> ${escapeHtml(req.album)}</span>` : ''}
+                    <span><i class="fas fa-tag"></i> ${req.content_type}</span>
+                </div>
+                <div class="request-date">${new Date(req.created_at).toLocaleString()}</div>
             </div>
-            ${req.artist ? `<div class="request-details">Artist: ${escapeHtml(req.artist)}</div>` : ''}
-            ${req.album ? `<div class="request-details">Album: ${escapeHtml(req.album)}</div>` : ''}
-            <div class="request-details">Type: ${req.content_type}</div>
-            ${req.streaming_service ? `<div class="request-details">Service: ${req.streaming_service}</div>` : ''}
-            <div class="request-date">Requested: ${new Date(req.created_at).toLocaleString()}</div>
-            ${currentUser?.role === 'admin' && req.status === 'pending' ? `
-                <button class="btn-secondary" onclick="processRequest(${req.id})">Process</button>
-            ` : ''}
+            <div class="request-actions">
+                 ${currentUser?.role === 'admin' && req.status === 'pending' ? `
+                    <button class="btn-secondary" onclick="processRequest(${req.id})">Process</button>
+                ` : ''}
+            </div>
         </div>
     `).join('');
 }
@@ -620,6 +633,42 @@ function stopPolling() {
     if (refreshInterval) {
         clearInterval(refreshInterval);
         refreshInterval = null;
+    }
+}
+
+// Persistence
+function savePreferences() {
+    const type = document.getElementById('searchType').value;
+    const services = Array.from(document.querySelectorAll('input[name="searchService"]:checked'))
+        .map(cb => cb.value);
+
+    const preferences = {
+        searchType: type,
+        searchServices: services
+    };
+
+    localStorage.setItem('riparr_preferences', JSON.stringify(preferences));
+}
+
+function loadPreferences() {
+    const stored = localStorage.getItem('riparr_preferences');
+    if (!stored) return;
+
+    try {
+        const prefs = JSON.parse(stored);
+
+        if (prefs.searchType) {
+            const typeSelect = document.getElementById('searchType');
+            if (typeSelect) typeSelect.value = prefs.searchType;
+        }
+
+        if (prefs.searchServices) {
+            document.querySelectorAll('input[name="searchService"]').forEach(cb => {
+                cb.checked = prefs.searchServices.includes(cb.value);
+            });
+        }
+    } catch (e) {
+        console.error('Failed to load preferences', e);
     }
 }
 
