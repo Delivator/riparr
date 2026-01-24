@@ -10,11 +10,14 @@ RUN apt-get update && apt-get install -y \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org -r requirements.txt
+# Copy dependencies first for better caching
+COPY pyproject.toml uv.lock ./
+
+# Install Python dependencies using uv
+RUN uv sync --frozen --no-cache
 
 # Copy application files
 COPY backend/ ./backend/

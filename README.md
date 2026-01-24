@@ -51,7 +51,8 @@ riparr/
 │   │   └── style.css             # CSS styles
 │   └── templates/
 │       └── index.html            # Main HTML template
-├── requirements.txt              # Python dependencies
+├── pyproject.toml                # Project metadata and dependencies
+├── uv.lock                       # Dependency lock file
 ├── Dockerfile                    # Docker configuration
 ├── docker-compose.yml            # Docker Compose configuration
 ├── .env.example                  # Example environment variables
@@ -96,16 +97,13 @@ riparr/
    cd riparr
    ```
 
-2. **Create and activate a virtual environment**
+2. **Initialize and sync the environment**
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   uv sync
    ```
 
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+
+ 3. **Set up Streamrip configuration**
 
 4. **Set up Streamrip configuration**
    ```bash
@@ -116,12 +114,12 @@ riparr/
 
 5. **Run the application**
    ```bash
-   FLASK_APP=backend/app.py flask run
+   uv run flask run
    ```
 
    or with debug mode:
    ```bash
-   FLASK_APP=backend/app.py flask run --debug
+   uv run flask run --debug
    ```
 
 6. **Access the application**

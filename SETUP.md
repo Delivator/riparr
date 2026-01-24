@@ -4,7 +4,7 @@ This guide will walk you through setting up Riparr for the first time.
 
 ## Prerequisites
 
-- Python 3.11+ or Podman
+- Python 3.11 and [uv](https://docs.astral.sh/uv/) installed (or Podman)
 - At least one streaming service account (Qobuz, Deezer, or Tidal)
 - (Optional) Jellyfin server for library integration
 
@@ -186,7 +186,7 @@ Riparr will:
 ### Streamrip Not Working
 ```bash
 # Test streamrip configuration
-docker-compose exec app python -c "from backend.streamrip_service import StreamripService; s = StreamripService(); print(s.search_track('test'))"
+uv run python -c "from backend.streamrip_service import StreamripService; s = StreamripService(); print(s.search_track('test'))"
 ```
 
 ### Jellyfin Connection Failed
