@@ -130,6 +130,7 @@ class StreamripService:
             'id': str(item.get('id')),
             'title': item.get('title') or item.get('name'),
             'artist': self._extract_artist(item),
+            'artist_id': self._extract_artist_id(item),
             'album': self._extract_album_title(item),
             'album_id': str(item.get('album', {}).get('id')) if isinstance(item.get('album'), dict) else None,
             'duration': item.get('duration'),
@@ -145,7 +146,6 @@ class StreamripService:
         if isinstance(album, dict):
             return album.get('title')
         return str(album) if album else None
-
     def _extract_artist(self, result):
         # Try direct artist field
         if 'artist' in result:
@@ -167,13 +167,6 @@ class StreamripService:
                 return result['artists'][0].get('name', '')
             return str(result['artists'][0])
             
-        # Try performers list
-        if 'performers' in result and result['performers']:
-            # Sometimes performers is a string list? Or list of dicts?
-            # Usually it's better to stick to main artist if possible.
-            # But if nothing else...
-            pass
-            
         # Fallback to album artist if track has no artist
         if 'album' in result and isinstance(result['album'], dict):
             album_artist = result['album'].get('artist')
@@ -183,6 +176,30 @@ class StreamripService:
                 return str(album_artist)
 
         return 'Unknown Artist'
+
+    def _extract_artist_id(self, result):
+        if 'artist' in result:
+            artist = result['artist']
+            if isinstance(artist, dict):
+                return str(artist.get('id', ''))
+            return None
+        
+        if 'performer' in result:
+            performer = result['performer']
+            if isinstance(performer, dict):
+                return str(performer.get('id', ''))
+            return None
+            
+        if 'artists' in result and result['artists']:
+            if isinstance(result['artists'][0], dict):
+                return str(result['artists'][0].get('id', ''))
+            
+        if 'album' in result and isinstance(result['album'], dict):
+            album_artist = result['album'].get('artist')
+            if isinstance(album_artist, dict):
+                return str(album_artist.get('id', ''))
+                
+        return None
 
     def _extract_cover_url(self, item, service):
         """Extract cover image URL based on service response structure"""
@@ -259,6 +276,7 @@ class StreamripService:
                         'id': str(item.get('id')),
                         'title': item.get('title') or item.get('name'),
                         'artist': self._extract_artist(item),
+                        'artist_id': self._extract_artist_id(item),
                         'year': item.get('year') or (item.get('release_date', '')[:4] if item.get('release_date') else None),
                         'track_count': item.get('tracks_count') or item.get('nb_tracks'),
                         'quality': quality_label,
@@ -275,6 +293,58 @@ class StreamripService:
     def search_album(self, query, service=None, limit=10):
         return asyncio.run(self.search_album_async(query, service, limit))
     
+    async def get_artist_albums_async(self, artist_id, service=None, limit=50):
+        """Fetch all albums/singles for an artist from a streaming service"""
+        service = service or self.primary_service
+        try:
+            client = await self._get_client(service)
+            
+            # Use get_metadata which handles artist discovery for all services
+            resp = await client.get_metadata(artist_id, 'artist')
+            
+            items = []
+            if service == 'qobuz':
+                # Qobuz returns albums in resp['albums']['items']
+                items = resp.get('albums', {}).get('items', [])
+            elif service == 'deezer':
+                items = resp.get('albums', [])
+            elif service == 'tidal':
+                items = resp.get('albums', [])
+            else:
+                return None, f"Discovery not supported for {service}"
+                
+            albums = []
+            for item in items:
+                # Robust date/year extraction
+                date_str = item.get('release_date') or item.get('release_date_original') or item.get('released_at')
+                year = item.get('year')
+                if not year and date_str and len(str(date_str)) >= 4:
+                    year = str(date_str)[:4]
+
+                # Extract quality info
+                quality = item.get('maximum_bit_depth') or item.get('quality')
+                sampling_rate = item.get('maximum_sampling_rate')
+                quality_label = str(quality) if quality else "Unknown"
+                if quality and sampling_rate:
+                    quality_label = f"{quality}B-{sampling_rate}kHz"
+
+                albums.append({
+                    'id': str(item.get('id')),
+                    'title': item.get('title') or item.get('name'),
+                    'artist': self._extract_artist(item),
+                    'year': year,
+                    'track_count': item.get('tracks_count') or item.get('nb_tracks'),
+                    'quality': quality_label,
+                    'service': service,
+                    'cover_url': self._extract_cover_url(item, service),
+                    'release_date': date_str,
+                })
+            
+            return albums[:limit], None
+        except Exception as e:
+            logger.exception(f"Artist albums fetch failed for {service}")
+            return None, str(e)
+
     async def download_track_async(self, track_id, service, output_path):
         """Download a track from a streaming service"""
         try:

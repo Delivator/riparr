@@ -126,6 +126,10 @@
                                     <input type="checkbox" name="searchService" value="tidal">
                                     <span>Tidal</span>
                                 </label>
+                                <label class="service-toggle">
+                                    <input type="checkbox" name="searchService" value="musicbrainz">
+                                    <span>MusicBrainz</span>
+                                </label>
                             </div>
                         </div>
                         <button id="searchBtn" class="btn-primary">Search</button>
@@ -236,6 +240,19 @@
                     <div id="adminRequestsList" class="requests-list"></div>
                 </div>
             </section>
+        </div>
+    </div>
+
+    <!-- Releases Modal -->
+    <div id="releasesModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Artist Releases</h2>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div id="modalBody" class="modal-body">
+                <!-- Releases will be loaded here -->
+            </div>
         </div>
     </div>
 

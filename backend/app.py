@@ -371,10 +371,48 @@ def search_streaming():
         if streamrip_service.fallback_service:
             services.append(streamrip_service.fallback_service)
 
-    # Use parallel search
+    # Separate MusicBrainz from streaming services
+    streaming_services = [s for s in services if s != 'musicbrainz']
+    mb_service = None
+    if 'musicbrainz' in services:
+        mb_service = MusicBrainzService()
+
+    # Use parallel search for streaming services
     import asyncio
-    results, error = asyncio.run(streamrip_service.parallel_search(query, services, content_type))
+    streaming_results = []
+    streaming_error = None
+    if streaming_services:
+        streaming_results, streaming_error = asyncio.run(streamrip_service.parallel_search(query, streaming_services, content_type))
     
+    # Handle MusicBrainz search
+    mb_results = []
+    mb_error = None
+    if mb_service:
+        if content_type == 'track':
+            mb_results, mb_error = mb_service.search_song(query) or ([], None)
+        elif content_type == 'album':
+            mb_results, mb_error = mb_service.search_album(query) or ([], None)
+        elif content_type == 'artist':
+            mb_results, mb_error = mb_service.search_artist(query) or ([], None)
+
+    # Normalize MusicBrainz results to match streaming results format
+    normalized_mb = []
+    if mb_results:
+        for res in mb_results:
+            normalized_mb.append({
+                'id': res.get('id'),
+                'title': res.get('title') or res.get('name'),
+                'artist': res.get('artist') or res.get('name'),
+                'artist_id': res.get('id') if content_type == 'artist' else None,
+                'album': res.get('album'),
+                'year': (res.get('first_release_date') or '')[:4],
+                'service': 'musicbrainz',
+                'cover_url': None # MusicBrainz doesn't provide cover URLs directly easily
+            })
+
+    results = streaming_results + normalized_mb
+    error = streaming_error or mb_error
+
     if not results and error:
         return jsonify({'error': error}), 500
     
@@ -398,6 +436,39 @@ def search_jellyfin():
         api_key=app.config.get('JELLYFIN_API_KEY')
     )
     results = jellyfin_service.search_library(query)
+    
+    return jsonify({'results': results})
+
+@app.route('/api/artist/<service>/<artist_id>/releases')
+@login_required
+def get_artist_releases(service, artist_id):
+    """Get all releases for an artist"""
+    if service == 'musicbrainz':
+        mb_service = MusicBrainzService()
+        mb_results, error = mb_service.get_artist_releases(artist_id)
+        # Normalize MB releases
+        results = []
+        if mb_results:
+            for res in mb_results:
+                results.append({
+                    'id': res.get('id'),
+                    'title': res.get('title'),
+                    'artist': None, # We already know the artist
+                    'year': (res.get('first_release_date') or '')[:4],
+                    'service': 'musicbrainz',
+                    'cover_url': None
+                })
+    else:
+        streamrip_service = StreamripService(
+            config_path=app.config.get('STREAMRIP_CONFIG_PATH', 'config/streamrip.toml'),
+            primary_service=app.config.get('PRIMARY_STREAMING_SERVICE', 'qobuz'),
+            fallback_service=app.config.get('FALLBACK_STREAMING_SERVICE', 'deezer')
+        )
+        import asyncio
+        results, error = asyncio.run(streamrip_service.get_artist_albums_async(artist_id, service))
+    
+    if error:
+        return jsonify({'error': error}), 500
     
     return jsonify({'results': results})
 
