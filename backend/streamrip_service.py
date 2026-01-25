@@ -212,6 +212,11 @@ class StreamripService:
         if quality and sampling_rate:
             quality_label = f"{quality}B-{sampling_rate}kHz"
 
+        # Extract explicit info
+        explicit = item.get('explicit_lyrics') or item.get('parental_warning') or item.get('explicit')
+        if explicit is None and isinstance(item.get('album'), dict):
+            explicit = item['album'].get('explicit_lyrics') or item['album'].get('parental_warning')
+            
         return {
             'id': str(item.get('id')),
             'title': item.get('title') or item.get('name'),
@@ -222,6 +227,8 @@ class StreamripService:
             'duration': item.get('duration'),
             'duration_ms': item.get('duration') * 1000 if isinstance(item.get('duration'), (int, float)) else None,
             'quality': quality_label,
+            'explicit': bool(explicit),
+            'version': item.get('version'),
             'service': service,
             'cover_url': self._extract_cover_url(item, service),
             'release_date': item.get('release_date') or item.get('release_date_original'),
@@ -419,6 +426,9 @@ class StreamripService:
         if quality and sampling_rate:
             quality_label = f"{quality}B-{sampling_rate}kHz"
 
+        # Extract explicit info
+        explicit = item.get('explicit_lyrics') or item.get('parental_warning') or item.get('explicit')
+
         return {
             'id': str(item.get('id')),
             'title': item.get('title') or item.get('name'),
@@ -427,6 +437,8 @@ class StreamripService:
             'year': year,
             'track_count': item.get('track_count') or item.get('tracks_count') or item.get('nb_tracks'),
             'quality': quality_label,
+            'explicit': bool(explicit),
+            'version': item.get('version'),
             'service': service,
             'cover_url': self._extract_cover_url(item, service),
             'release_date': date_str,
@@ -501,6 +513,7 @@ class StreamripService:
             client = await self._get_client(service, local_config)
             abs_output_path = os.path.abspath(output_path)
             local_config.session.downloads.folder = abs_output_path
+            local_config.session.downloads.source_subdirectories = False
             
             # Force download even if in DB
             force_db = Database(Dummy(), self.db.failed)

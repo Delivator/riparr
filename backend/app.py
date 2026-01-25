@@ -429,6 +429,8 @@ def search_streaming():
                 'year': (res.get('first_release_date') or '')[:4],
                 'track_count': None,
                 'quality': 'Unknown',
+                'explicit': False,
+                'version': res.get('type') if res.get('type') != 'album' else None,
                 'service': 'musicbrainz',
                 'cover_url': None # MusicBrainz doesn't provide cover URLs directly easily
             })
@@ -481,6 +483,8 @@ def get_artist_releases(service, artist_id):
                     'release_date': res.get('first_release_date'),
                     'track_count': None,
                     'quality': 'Unknown',
+                    'explicit': False,
+                    'version': res.get('type') if res.get('type') != 'album' else None,
                     'service': 'musicbrainz',
                     'cover_url': None
                 })

@@ -255,44 +255,36 @@ class DownloadService:
         
         try:
             # Check if the downloader already created a folder structure (common for albums)
-            # If so, we want to NOT nest it inside our own pattern.
             has_subfolders = False
-            top_level_items = os.listdir(request.download_path)
-            for item in top_level_items:
-                if os.path.isdir(os.path.join(request.download_path, item)):
-                    has_subfolders = True
-                    break
+            if os.path.isdir(request.download_path):
+                top_level_items = os.listdir(request.download_path)
+                for item in top_level_items:
+                    if os.path.isdir(os.path.join(request.download_path, item)) and not item.startswith('.'):
+                        has_subfolders = True
+                        break
 
             if has_subfolders and request.content_type.value == 'album':
-                logger.info("Detected pre-structured album download. Moving contents using pattern.")
-                dest_path = self._build_destination_path(request)
+                # Find the real album root (skip redundant Artist folders)
+                real_src = self._find_real_album_root(request.download_path)
                 
-                # If Streamrip created a single album folder inside our temp dir,
-                # we want to move its CONTENTS into dest_path to avoid "music/Artist/Album/Album"
-                folders = [i for i in top_level_items if os.path.isdir(os.path.join(request.download_path, i))]
+                dest_base = self._build_destination_path(request)
+                parent_dest = os.path.dirname(dest_base)
+                os.makedirs(parent_dest, exist_ok=True)
                 
-                if len(folders) == 1:
-                    album_src = os.path.join(request.download_path, folders[0])
-                    os.makedirs(dest_path, exist_ok=True)
-                    for item in os.listdir(album_src):
-                        src = os.path.join(album_src, item)
-                        dst = os.path.join(dest_path, item)
-                        if os.path.isdir(src) and os.path.exists(dst):
-                            self._merge_directories(src, dst)
-                        else:
-                            shutil.move(src, dst)
+                # Use the metadata-rich folder name from source
+                metadata_folder_name = os.path.basename(real_src)
+                final_dst = os.path.join(parent_dest, metadata_folder_name)
+                
+                logger.info(f"Moving {real_src} to {final_dst}")
+                
+                if os.path.exists(final_dst) and real_src != final_dst:
+                    self._merge_directories(real_src, final_dst)
+                    if os.path.exists(real_src):
+                        shutil.rmtree(real_src)
                 else:
-                    # Move everything from download_path to dest_path
-                    os.makedirs(dest_path, exist_ok=True)
-                    for item in top_level_items:
-                        src = os.path.join(request.download_path, item)
-                        dst = os.path.join(dest_path, item)
-                        if os.path.isdir(src) and os.path.exists(dst):
-                            self._merge_directories(src, dst)
-                        else:
-                            shutil.move(src, dst)
+                    shutil.move(real_src, final_dst)
                 
-                request.download_path = dest_path
+                request.download_path = final_dst
             else:
                 # Build destination path using pattern for tracks or unstructured albums
                 dest_path = self._build_destination_path(request)
@@ -323,6 +315,23 @@ class DownloadService:
         except Exception as e:
             logger.exception("Failed to move files to destination")
             return False, str(e)
+
+    def _find_real_album_root(self, path):
+        """Find the folder that actually contains tracks or multiple subfolders"""
+        current = path
+        audio_exts = ('.flac', '.mp3', '.m4a', '.alac', '.ogg', '.wav', '.wma', '.aac', '.opus')
+        while True:
+            items = os.listdir(current)
+            # Filter for visible folders
+            visible_dirs = [i for i in items if os.path.isdir(os.path.join(current, i)) and not i.startswith('.')]
+            # Filter for audio files
+            audio_files = [i for i in items if i.lower().endswith(audio_exts)]
+            
+            if audio_files or len(visible_dirs) != 1:
+                return current
+            
+            # If exactly one subdirectory and no tracks, go deeper
+            current = os.path.join(current, visible_dirs[0])
 
     def _merge_directories(self, src, dst):
         """Recursively merge directories from src to dst"""

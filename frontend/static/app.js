@@ -310,6 +310,8 @@ function displaySearchResults(results, type, searchServices) {
                     <div class="search-card-cover">
                         <img src="${coverUrl}" alt="${escapeHtml(title)}" onerror="this.src='/static/img/default-cover.png'">
                         ${quality ? `<span class="badge badge-quality">${escapeHtml(quality)}</span>` : ''}
+                        ${result.explicit ? `<span class="badge badge-explicit">Explicit</span>` : ''}
+                        ${result.version ? `<span class="badge badge-version" title="${escapeHtml(result.version)}">${escapeHtml(result.version)}</span>` : ''}
                     </div>
                     <div class="search-card-content">
                         <div class="search-card-header">
@@ -399,6 +401,8 @@ async function showArtistReleases(artistId, service, artistName) {
                                      class="release-item-img"
                                      onerror="this.src='/static/img/default-cover.png'">
                                 ${release.quality && release.quality !== 'Unknown' ? `<span class="badge badge-quality">${escapeHtml(release.quality)}</span>` : ''}
+                                ${release.explicit ? `<span class="badge badge-explicit">Explicit</span>` : ''}
+                                ${release.version ? `<span class="badge badge-version" title="${escapeHtml(release.version)}">${escapeHtml(release.version)}</span>` : ''}
                             </div>
                             <h4 title="${escapeHtml(release.title)}">${escapeHtml(release.title)}</h4>
                             <div class="release-meta text-truncate">
