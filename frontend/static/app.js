@@ -570,11 +570,15 @@ function displayRequests(requests, containerId) {
                     ${req.album ? `<span><i class="fas fa-compact-disc"></i> ${escapeHtml(req.album)}</span>` : ''}
                     <span><i class="fas fa-tag"></i> ${req.content_type}</span>
                 </div>
+                ${req.error_message ? `<div class="request-error"><i class="fas fa-exclamation-triangle"></i> ${escapeHtml(req.error_message)}</div>` : ''}
                 <div class="request-date">${new Date(req.created_at).toLocaleString()}</div>
             </div>
             <div class="request-actions">
                  ${currentUser?.role === 'admin' && req.status === 'pending' ? `
                     <button class="btn-secondary" onclick="processRequest(${req.id})">Process</button>
+                ` : ''}
+                ${(currentUser?.role === 'admin' || currentUser?.id === req.user_id) && req.status === 'failed' ? `
+                    <button class="btn-primary" onclick="processRequest(${req.id})">Retry</button>
                 ` : ''}
             </div>
         </div>

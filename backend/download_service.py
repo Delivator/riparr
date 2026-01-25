@@ -67,6 +67,7 @@ class DownloadService:
         try:
             # Update status to searching
             request.status = RequestStatus.SEARCHING
+            request.error_message = None
             db.session.commit()
             self._emit_status_update(request)
             

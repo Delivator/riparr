@@ -294,10 +294,15 @@ def get_request(request_id):
 @app.route('/api/requests/<int:request_id>/process', methods=['POST'])
 @login_required
 def process_request(request_id):
-    """Process a music request (admin only)"""
-    logger.info(f"API CALL: POST /api/requests/{request_id}/process")
+    music_request = MusicRequest.query.get(request_id)
+    if not music_request:
+        return jsonify({'error': 'Request not found'}), 404
+        
     if not current_user.is_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+        if music_request.user_id != current_user.id:
+            return jsonify({'error': 'Unauthorized'}), 403
+        if music_request.status not in [RequestStatus.PENDING, RequestStatus.FAILED]:
+            return jsonify({'error': 'Can only retry failed or pending requests'}), 400
     
     download_service = DownloadService(
         config_path=app.config.get('STREAMRIP_CONFIG_PATH'),

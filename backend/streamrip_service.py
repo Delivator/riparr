@@ -524,7 +524,7 @@ class StreamripService:
                 actual_files = 0
                 for root, dirs, filenames in os.walk(album_obj.folder):
                     for f in filenames:
-                        if f.lower().endswith(('.flac', '.mp3', '.m4a', '.alac', '.ogg', '.wav')):
+                        if f.lower().endswith(('.flac', '.mp3', '.m4a', '.alac', '.ogg', '.wav', '.wma', '.aac', '.opus')):
                             actual_files += 1
                 
                 if actual_files == 0:

@@ -45,6 +45,7 @@ cp config/streamrip.toml.example config/streamrip.toml
 The recommended way to run the backend locally:
 ```bash
 uv sync
+uv run flask --app backend/app.py init-db
 uv run flask --app backend/app.py run --debug
 ```
 

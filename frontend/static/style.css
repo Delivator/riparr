@@ -569,6 +569,16 @@ select option {
     gap: 16px;
 }
 
+.request-error {
+    color: #f87171;
+    font-size: 0.9em;
+    background: rgba(239, 68, 68, 0.1);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border-left: 3px solid #f87171;
+    margin-top: 4px;
+}
+
 .request-date {
     color: rgba(255, 255, 255, 0.3);
     font-size: 0.85em;

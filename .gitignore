@@ -57,3 +57,5 @@ config/streamrip.toml
 
 # Database
 instance/riparr.db
+config/downloads.db
+config/failed_downloads.db
