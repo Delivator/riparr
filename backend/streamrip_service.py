@@ -1,20 +1,19 @@
 import os
 import asyncio
 import logging
-from streamrip.client import QobuzClient, DeezerClient, TidalClient
-from streamrip.config import Config as StreamripConfig
-from streamrip.db import Database, Downloads, Failed, Dummy
-from streamrip.media.track import PendingSingle
-from streamrip.media.album import PendingAlbum
-from streamrip.media import remove_artwork_tempdirs
-
-import streamrip.media.semaphore
+import shutil
+import copy
+import re
 from contextlib import nullcontext
 
 logger = logging.getLogger(__name__)
+logging.getLogger("musicbrainzngs").setLevel(logging.WARNING)
 
-# Monkeypatch streamrip's global semaphore to be loop-safe and thread-safe
-# This solves the "different event loop" crash when multiple requests are processed.
+# --- MONKEYPATCHES (Apply BEFORE any other streamrip imports) ---
+import streamrip.media.semaphore
+import streamrip.media.artwork
+
+# 1. Monkeypatch streamrip's global semaphore to be loop-local and thread-safe
 _loop_semaphores = {}
 
 def patched_global_download_semaphore(c):
@@ -22,26 +21,36 @@ def patched_global_download_semaphore(c):
         loop = asyncio.get_running_loop()
         if loop not in _loop_semaphores:
             if c.concurrency:
-                max_connections = c.max_connections if c.max_connections > 0 else None
+                max_connections = c.max_connections if c.max_connections > 0 else 1
             else:
                 max_connections = 1
                 
-            if max_connections is None:
-                _loop_semaphores[loop] = nullcontext()
-            else:
-                _loop_semaphores[loop] = asyncio.Semaphore(max_connections)
+            if max_connections <= 0:
+                return nullcontext()
+            _loop_semaphores[loop] = asyncio.Semaphore(max_connections)
         return _loop_semaphores[loop]
     except RuntimeError:
         return nullcontext()
 
-# Apply the monkeypatches permanently
 streamrip.media.semaphore.global_download_semaphore = patched_global_download_semaphore
 
-# Patch artwork cleanup to be a no-op. 
-# The global set _artwork_tempdirs is not thread-safe and causes crashes if 
-# one thread cleans up while another is still downloading.
-import streamrip.media.artwork
+# 2. Patch artwork cleanup to be a no-op to prevent race conditions
 streamrip.media.artwork.remove_artwork_tempdirs = lambda: None
+
+# Now we can safely import other streamrip modules
+from streamrip.client import QobuzClient, DeezerClient, TidalClient
+from streamrip.config import Config as StreamripConfig
+from streamrip.db import Database, Downloads, Failed, Dummy
+from streamrip.media.track import PendingSingle
+from streamrip.media.album import PendingAlbum
+from streamrip.media import remove_artwork_tempdirs # This is now our no-op
+
+# Also explicitly patch the references in track and album modules
+import streamrip.media.track
+import streamrip.media.album
+streamrip.media.track.global_download_semaphore = patched_global_download_semaphore
+streamrip.media.album.global_download_semaphore = patched_global_download_semaphore
+# -----------------------------------------------------------------
 
 class StreamripService:
     def __init__(self, config_path=None, primary_service=None, fallback_service=None):
@@ -130,16 +139,17 @@ class StreamripService:
             logger.error(f"Error initializing streamrip database: {e}")
             raise
     
-    async def _get_client(self, service):
+    async def _get_client(self, service, config=None):
         """Create the appropriate client for the streaming service"""
         self._ensure_config_loaded()
+        use_config = config or self.config
         
         if service == 'qobuz':
-            client = QobuzClient(self.config)
+            client = QobuzClient(use_config)
         elif service == 'deezer':
-            client = DeezerClient(self.config)
+            client = DeezerClient(use_config)
         elif service == 'tidal':
-            client = TidalClient(self.config)
+            client = TidalClient(use_config)
         else:
             raise ValueError(f"Unsupported service: {service}")
             
@@ -425,23 +435,26 @@ class StreamripService:
     async def download_track_async(self, track_id, service, output_path):
         """Download a track from a streaming service"""
         try:
-            client = await self._get_client(service)
+            self._ensure_config_loaded()
+            # Deep copy config to be thread-safe/loop-safe
+            local_config = copy.deepcopy(self.config)
+            
+            client = await self._get_client(service, local_config)
             # Ensure absolute path for output
             abs_output_path = os.path.abspath(output_path)
             
-            # Override output folder in session config
-            self.config.session.downloads.folder = abs_output_path
+            # Override output folder in local session config
+            local_config.session.downloads.folder = abs_output_path
             logger.info(f"Targeting download folder: {abs_output_path}")
             
-            # Force download even if in DB by bypassing the skip check in resolve()
-            # We pass a temporary Database instance with a Dummy downloads interface.
+            # Force download even if in DB
             force_db = Database(Dummy(), self.db.failed)
             
             try:
                 pending = PendingSingle(
                     id=str(track_id),
                     client=client,
-                    config=self.config,
+                    config=local_config,
                     db=force_db
                 )
                 
@@ -454,6 +467,15 @@ class StreamripService:
                 # Verify that the file was actually produced
                 if not os.path.exists(track_obj.download_path):
                     return False, "Download failed (output file missing)"
+                
+                # Manual cleanup of __artwork folder if it exists in track folder
+                artwork_dir = os.path.join(track_obj.folder, "__artwork")
+                if os.path.exists(artwork_dir):
+                    try:
+                        shutil.rmtree(artwork_dir)
+                        logger.debug(f"Cleaned up {artwork_dir}")
+                    except Exception as e:
+                        logger.warning(f"Failed to cleanup {artwork_dir}: {e}")
                     
                 return True, None
             finally:
@@ -472,9 +494,13 @@ class StreamripService:
     
     async def download_album_async(self, album_id, service, output_path):
         try:
-            client = await self._get_client(service)
+            self._ensure_config_loaded()
+            # Deep copy config to be thread-safe/loop-safe
+            local_config = copy.deepcopy(self.config)
+            
+            client = await self._get_client(service, local_config)
             abs_output_path = os.path.abspath(output_path)
-            self.config.session.downloads.folder = abs_output_path
+            local_config.session.downloads.folder = abs_output_path
             
             # Force download even if in DB
             force_db = Database(Dummy(), self.db.failed)
@@ -483,7 +509,7 @@ class StreamripService:
                 pending = PendingAlbum(
                     id=str(album_id),
                     client=client,
-                    config=self.config,
+                    config=local_config,
                     db=force_db
                 )
                 
@@ -505,6 +531,15 @@ class StreamripService:
                     return False, "Album download failed (no files produced)"
                 elif actual_files < expected_tracks:
                     return False, f"Incomplete download: {actual_files}/{expected_tracks} tracks saved"
+                
+                # Manual cleanup of __artwork folder if it exists in album folder
+                artwork_dir = os.path.join(album_obj.folder, "__artwork")
+                if os.path.exists(artwork_dir):
+                    try:
+                        shutil.rmtree(artwork_dir)
+                        logger.debug(f"Cleaned up {artwork_dir}")
+                    except Exception as e:
+                        logger.warning(f"Failed to cleanup {artwork_dir}: {e}")
                     
                 return True, None
             finally:
