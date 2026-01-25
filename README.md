@@ -2,7 +2,7 @@
 
 A music requester and download management system — **Like Jellyseerr but for music.**
 
-Riparr allows users to search for and request songs, albums, and artists. It automatically downloads content using [streamrip](https://github.com/nathom/streamrip), processes metadata, and integrates with Jellyfin to avoid duplicate requests.
+Riparr allows users to search for and request songs, albums, and artists. It leverages [streamrip](https://github.com/nathom/streamrip) for automated downloading, with planned features for advanced metadata processing and Jellyfin library integration.
 
 ---
 
@@ -10,9 +10,11 @@ Riparr allows users to search for and request songs, albums, and artists. It aut
 
 - **Music Search & Request**: Search via MusicBrainz API for accurate metadata.
 - **Automatic Downloading**: Seamlessly fetch music via Qobuz, Deezer, or Tidal.
-- **Jellyfin Integration**: Sync your existing library to prevent duplicate downloads and show "Already Available" status.
-- **Smart Metadata**: Integrated post-processing for perfect tags and artwork.
-- **User Roles**: Separate admin and user accounts with Jellyfin OAuth support.
+- **Jellyfin Integration**: (Planned) Sync your existing library to prevent duplicate downloads.
+- **Smart Metadata**: (Planned) Integrated post-processing with MusicBrainz Picard for perfect tags.
+- **User Roles**: Separate admin and user accounts.
+
+> **Note**: Post-processing and Jellyfin library integration are currently in development and not yet fully implemented.
 
 ---
 
@@ -90,8 +92,23 @@ services:
 ## ⚙️ Administration
 
 - **Default Admin**: `admin` / `admin` (Change this immediately!)
-- **Jellyfin**: Enter your `JELLYFIN_URL` and `JELLYFIN_API_KEY` in the admin settings to enable library syncing.
-- **File Patterns**: Customize how music is organized (e.g., `{artist}/{album}/{title}`) in the web settings.
+- **Storage**: Customize how music is organized (e.g., `{artist}/{album}/{title}`) in the web settings.
+
+---
+
+## 🙏 Acknowledgments
+
+This project relies heavily on the incredible work of the [streamrip](https://github.com/nathom/streamrip) project. Huge thanks to **nathom** and all the **streamrip contributors** for building the core engine that makes Riparr possible.
+
+---
+
+## ⚖️ Disclaimer & Warning
+
+### ⚠️ Vibecoded
+This project has been almost **100% vibecoded** with the help of **GitHub Copilot** and **Antigravity**. It is provided "as is", and I take no responsibility for any harm, data loss, or emotional distress caused by its use.
+
+### ⚖️ Legal Disclaimer
+Riparr is for educational and private use only. I cannot be held responsible for how this software is used. By using this software, you agree to comply with the Terms of Service of the streaming services you access. You are responsible for your own actions and any consequences that may arise from using this software.
 
 ---
 
