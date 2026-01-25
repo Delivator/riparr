@@ -69,7 +69,7 @@ podman compose up -d
 ### 2. Initialize the Database
 On your first deployment, run the initialization command:
 ```bash
-podman compose exec app flask init-db
+podman compose exec app flask --app backend/app.py init-db
 ```
 
 ### 3. Example `docker-compose.yml` Structure
