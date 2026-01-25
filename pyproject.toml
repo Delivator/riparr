@@ -1,6 +1,7 @@
 [project]
 name = "riparr"
 version = "0.1.0"
+license = { text = "GPL-3.0-or-later" }
 requires-python = "==3.11.*"
 dependencies = [
     "eventlet==0.35.2",

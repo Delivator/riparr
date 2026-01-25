@@ -109,8 +109,3 @@ This project has been almost **100% vibecoded** with the help of **GitHub Copilo
 
 ### ⚖️ Legal Disclaimer
 Riparr is for educational and private use only. I cannot be held responsible for how this software is used. By using this software, you agree to comply with the Terms of Service of the streaming services you access. You are responsible for your own actions and any consequences that may arise from using this software.
-
----
-
-## 📄 License
-MIT - Created by [Delivator](https://github.com/Delivator)
