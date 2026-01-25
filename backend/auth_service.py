@@ -1,6 +1,8 @@
 import requests
 from flask import current_app
-from backend.models import User, AuthProvider, UserRole, db
+
+from backend.models import AuthProvider, User, UserRole, db
+
 
 class JellyfinAuthService:
     @staticmethod
@@ -22,7 +24,7 @@ class JellyfinAuthService:
             
             headers = {
                 "Content-Type": "application/json",
-                "X-Emby-Authorization": f'MediaBrowser Client="Riparr", Device="Server", DeviceId="riparr-server", Version="1.0.0"'
+                "X-Emby-Authorization": 'MediaBrowser Client="Riparr", Device="Server", DeviceId="riparr-server", Version="1.0.0"'
             }
             
             response = requests.post(auth_url, json=payload, headers=headers, timeout=10)

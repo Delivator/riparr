@@ -1,6 +1,7 @@
 import os
 from datetime import timedelta
 
+
 class Config:
     # Flask
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')

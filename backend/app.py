@@ -14,13 +14,20 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from flask import Flask, jsonify, render_template, request, session
-from flask_cors import CORS
-from flask_socketio import SocketIO
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from sqlalchemy.exc import IntegrityError, OperationalError
 import os
+
 from dotenv import load_dotenv
+from flask import Flask, jsonify, render_template, request
+from flask_cors import CORS
+from flask_login import (
+    LoginManager,
+    current_user,
+    login_required,
+    login_user,
+    logout_user,
+)
+from flask_socketio import SocketIO
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 # Load environment variables from .env file
 load_dotenv()
@@ -46,13 +53,21 @@ logger.propagate = True
 logger.info("Riparr starting up...")
 
 
-from backend.models import db, User, MusicRequest, Settings, ContentType, RequestStatus, UserRole
+from backend.auth_service import JellyfinAuthService, LocalAuthService
 from backend.config import Config
-from backend.auth_service import LocalAuthService, JellyfinAuthService
+from backend.download_service import DownloadService
+from backend.jellyfin_service import JellyfinService
+from backend.models import (
+    ContentType,
+    MusicRequest,
+    RequestStatus,
+    Settings,
+    User,
+    UserRole,
+    db,
+)
 from backend.musicbrainz_service import MusicBrainzService
 from backend.streamrip_service import StreamripService
-from backend.jellyfin_service import JellyfinService
-from backend.download_service import DownloadService
 
 app = Flask(__name__,
             static_folder='../frontend/static',
@@ -325,7 +340,7 @@ def process_request(request_id):
                     logger.error(f"Background process failed for request {request_id}: {error}")
                 else:
                     logger.info(f"Background process succeeded for request {request_id}")
-            except Exception as e:
+            except Exception:
                 logger.exception(f"Fatal error in background thread for request {request_id}")
             finally:
                 db.session.remove()

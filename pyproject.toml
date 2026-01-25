@@ -16,3 +16,15 @@ dependencies = [
     "requests==2.31.0",
     "streamrip==2.1.0",
 ]
+
+[dependency-groups]
+dev = ["pytest==7.4.3", "ruff==0.1.6"]
+
+[tool.ruff]
+line-length = 120
+select = ["E", "F", "B"]
+ignore = ["E501", "E402", "E722", "E701", "B007", "B904"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+python_files = "test_*.py"

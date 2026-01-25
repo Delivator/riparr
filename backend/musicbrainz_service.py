@@ -1,5 +1,7 @@
-import musicbrainzngs as mb
 import re
+
+import musicbrainzngs as mb
+
 
 class MusicBrainzService:
     def __init__(self):

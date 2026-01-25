@@ -1,6 +1,9 @@
-import requests
-from backend.models import JellyfinLibrary, ContentType, db
 from datetime import datetime
+
+import requests
+
+from backend.models import ContentType, JellyfinLibrary, db
+
 
 class JellyfinService:
     def __init__(self, base_url=None, api_key=None):

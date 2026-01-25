@@ -1,17 +1,16 @@
-import os
 import asyncio
-import logging
-import shutil
 import copy
-import re
+import logging
+import os
+import shutil
 from contextlib import nullcontext
 
 logger = logging.getLogger(__name__)
 logging.getLogger("musicbrainzngs").setLevel(logging.WARNING)
 
 # --- MONKEYPATCHES (Apply BEFORE any other streamrip imports) ---
-import streamrip.media.semaphore
 import streamrip.media.artwork
+import streamrip.media.semaphore
 
 # 1. Monkeypatch streamrip's global semaphore to be loop-local and thread-safe
 _loop_semaphores = {}
@@ -38,16 +37,16 @@ streamrip.media.semaphore.global_download_semaphore = patched_global_download_se
 streamrip.media.artwork.remove_artwork_tempdirs = lambda: None
 
 # Now we can safely import other streamrip modules
-from streamrip.client import QobuzClient, DeezerClient, TidalClient
-from streamrip.config import Config as StreamripConfig
-from streamrip.db import Database, Downloads, Failed, Dummy
-from streamrip.media.track import PendingSingle
-from streamrip.media.album import PendingAlbum
-from streamrip.media import remove_artwork_tempdirs # This is now our no-op
+import streamrip.media.album
 
 # Also explicitly patch the references in track and album modules
 import streamrip.media.track
-import streamrip.media.album
+from streamrip.client import DeezerClient, QobuzClient, TidalClient
+from streamrip.config import Config as StreamripConfig
+from streamrip.db import Database, Downloads, Dummy, Failed
+from streamrip.media.album import PendingAlbum
+from streamrip.media.track import PendingSingle
+
 streamrip.media.track.global_download_semaphore = patched_global_download_semaphore
 streamrip.media.album.global_download_semaphore = patched_global_download_semaphore
 # -----------------------------------------------------------------
@@ -108,8 +107,8 @@ class StreamripService:
             
         # 1. Qobuz MD5 Password Hashing
         try:
-            import re
             import hashlib
+            import re
             c = self.config.session.qobuz
             if not c.use_auth_token and c.password_or_token:
                 # Check if it's a 32-character hex string (MD5)

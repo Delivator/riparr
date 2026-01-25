@@ -1,11 +1,13 @@
+import logging
 import os
 import shutil
+from datetime import datetime
+
 from flask import current_app
+
 from backend.models import MusicRequest, RequestStatus, db
 from backend.musicbrainz_service import MusicBrainzService
 from backend.streamrip_service import StreamripService
-import logging
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
