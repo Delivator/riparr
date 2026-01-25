@@ -8,7 +8,40 @@ from streamrip.media.track import PendingSingle
 from streamrip.media.album import PendingAlbum
 from streamrip.media import remove_artwork_tempdirs
 
+import streamrip.media.semaphore
+from contextlib import nullcontext
+
 logger = logging.getLogger(__name__)
+
+# Monkeypatch streamrip's global semaphore to be loop-safe and thread-safe
+# This solves the "different event loop" crash when multiple requests are processed.
+_loop_semaphores = {}
+
+def patched_global_download_semaphore(c):
+    try:
+        loop = asyncio.get_running_loop()
+        if loop not in _loop_semaphores:
+            if c.concurrency:
+                max_connections = c.max_connections if c.max_connections > 0 else None
+            else:
+                max_connections = 1
+                
+            if max_connections is None:
+                _loop_semaphores[loop] = nullcontext()
+            else:
+                _loop_semaphores[loop] = asyncio.Semaphore(max_connections)
+        return _loop_semaphores[loop]
+    except RuntimeError:
+        return nullcontext()
+
+# Apply the monkeypatches permanently
+streamrip.media.semaphore.global_download_semaphore = patched_global_download_semaphore
+
+# Patch artwork cleanup to be a no-op. 
+# The global set _artwork_tempdirs is not thread-safe and causes crashes if 
+# one thread cleans up while another is still downloading.
+import streamrip.media.artwork
+streamrip.media.artwork.remove_artwork_tempdirs = lambda: None
 
 class StreamripService:
     def __init__(self, config_path=None, primary_service=None, fallback_service=None):
@@ -31,11 +64,19 @@ class StreamripService:
     
     def _ensure_config_loaded(self):
         """Ensure configuration and database are loaded before use"""
-        if not self._config_loaded:
+        current_loop = None
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+
+        if not self._config_loaded or (current_loop and getattr(self, '_loop', None) != current_loop):
             self._load_config()
             self._init_db()
             self._config_loaded = True
-    
+            self._loop = current_loop
+            # No need to manually reset semaphore anymore since it's patched
+
     def _load_config(self):
         """Load streamrip configuration"""
         try:
@@ -122,21 +163,22 @@ class StreamripService:
     async def search_track_async(self, query, service=None, limit=10):
         """Search for a track on a streaming service"""
         service = service or self.primary_service
-        
+        client = None
         try:
             client = await self._get_client(service)
-            pages = await client.search('track', query, limit=limit)
+            results = await client.search('track', query, limit=limit)
             
             tracks = []
-            for page in pages:
-                items = self._extract_search_items(page, service, 'track')
-                for item in items:
-                    tracks.append(self._normalize_track(item, service))
+            for item in results:
+                tracks.append(self._normalize_track(item, service)) # Changed to _normalize_track
             
-            return tracks[:limit], None
+            return tracks, None
         except Exception as e:
             logger.exception("Track search failed")
             return None, str(e)
+        finally:
+            if client and hasattr(client, 'session'):
+                await client.session.close()
             
     def _extract_search_items(self, page, service, media_type):
         if service == 'qobuz':
@@ -290,55 +332,45 @@ class StreamripService:
         return asyncio.run(self.search_track_async(query, service, limit))
     
     async def search_album_async(self, query, service=None, limit=10):
+        """Search for an album on a streaming service"""
         service = service or self.primary_service
+        client = None
         try:
             client = await self._get_client(service)
-            pages = await client.search('album', query, limit=limit)
+            results = await client.search('album', query, limit=limit)
+            
+            # Since client.search might return pages or items depending on implementation, 
+            # we need to be careful. In streamrip v2, search() usually returns a list of results 
+            # for some clients or a list of pages for others. 
+            # Actually, streamrip v2's Client._paginate returns a list of pages.
             
             albums = []
-            for page in pages:
+            for page in results:
                 items = self._extract_search_items(page, service, 'album')
                 for item in items:
-                    # Extract quality info
-                    quality = item.get('maximum_bit_depth') or item.get('quality')
-                    sampling_rate = item.get('maximum_sampling_rate')
-                    quality_label = str(quality) if quality else "Unknown"
-                    if quality and sampling_rate:
-                        quality_label = f"{quality}B-{sampling_rate}kHz"
-
-                    albums.append({
-                        'id': str(item.get('id')),
-                        'title': item.get('title') or item.get('name'),
-                        'artist': self._extract_artist(item),
-                        'artist_id': self._extract_artist_id(item),
-                        'year': item.get('year') or (item.get('release_date', '')[:4] if item.get('release_date') else None),
-                        'track_count': item.get('tracks_count') or item.get('nb_tracks'),
-                        'quality': quality_label,
-                        'service': service,
-                        'cover_url': self._extract_cover_url(item, service),
-                        'release_date': item.get('release_date') or item.get('release_date_original'),
-                    })
+                    albums.append(self._normalize_album(item, service))
             
             return albums[:limit], None
         except Exception as e:
             logger.exception("Album search failed")
             return None, str(e)
-    
+        finally:
+            if client and hasattr(client, 'session'):
+                await client.session.close()
+
     def search_album(self, query, service=None, limit=10):
         return asyncio.run(self.search_album_async(query, service, limit))
-    
+
     async def get_artist_albums_async(self, artist_id, service=None, limit=50):
         """Fetch all albums/singles for an artist from a streaming service"""
         service = service or self.primary_service
+        client = None
         try:
             client = await self._get_client(service)
-            
-            # Use get_metadata which handles artist discovery for all services
             resp = await client.get_metadata(artist_id, 'artist')
             
             items = []
             if service == 'qobuz':
-                # Qobuz returns albums in resp['albums']['items']
                 items = resp.get('albums', {}).get('items', [])
             elif service == 'deezer':
                 items = resp.get('albums', [])
@@ -349,35 +381,46 @@ class StreamripService:
                 
             albums = []
             for item in items:
-                # Robust date/year extraction
-                date_str = item.get('release_date') or item.get('release_date_original') or item.get('released_at')
-                year = item.get('year')
-                if not year and date_str and len(str(date_str)) >= 4:
-                    year = str(date_str)[:4]
-
-                # Extract quality info
-                quality = item.get('maximum_bit_depth') or item.get('quality')
-                sampling_rate = item.get('maximum_sampling_rate')
-                quality_label = str(quality) if quality else "Unknown"
-                if quality and sampling_rate:
-                    quality_label = f"{quality}B-{sampling_rate}kHz"
-
-                albums.append({
-                    'id': str(item.get('id')),
-                    'title': item.get('title') or item.get('name'),
-                    'artist': self._extract_artist(item),
-                    'year': year,
-                    'track_count': item.get('tracks_count') or item.get('nb_tracks'),
-                    'quality': quality_label,
-                    'service': service,
-                    'cover_url': self._extract_cover_url(item, service),
-                    'release_date': date_str,
-                })
+                albums.append(self._normalize_album(item, service))
             
             return albums[:limit], None
         except Exception as e:
             logger.exception(f"Artist albums fetch failed for {service}")
             return None, str(e)
+        finally:
+            if client and hasattr(client, 'session'):
+                await client.session.close()
+
+    def get_artist_albums(self, artist_id, service=None, limit=50):
+        return asyncio.run(self.get_artist_albums_async(artist_id, service, limit))
+
+    def _normalize_album(self, item, service):
+        """Extract album info consistently"""
+        # Robust date/year extraction
+        date_str = item.get('release_date') or item.get('release_date_original') or item.get('released_at')
+        year = item.get('year')
+        if not year and date_str and len(str(date_str)) >= 4:
+            year = str(date_str)[:4]
+
+        # Extract quality info
+        quality = item.get('maximum_bit_depth') or item.get('quality')
+        sampling_rate = item.get('maximum_sampling_rate')
+        quality_label = str(quality) if quality else "Unknown"
+        if quality and sampling_rate:
+            quality_label = f"{quality}B-{sampling_rate}kHz"
+
+        return {
+            'id': str(item.get('id')),
+            'title': item.get('title') or item.get('name'),
+            'artist': self._extract_artist(item),
+            'artist_id': self._extract_artist_id(item),
+            'year': year,
+            'track_count': item.get('tracks_count') or item.get('nb_tracks'),
+            'quality': quality_label,
+            'service': service,
+            'cover_url': self._extract_cover_url(item, service),
+            'release_date': date_str,
+        }
 
     async def download_track_async(self, track_id, service, output_path):
         """Download a track from a streaming service"""
@@ -407,11 +450,15 @@ class StreamripService:
                     return False, "Failed to resolve track metadata (resolve returned None)"
                     
                 await track_obj.rip()
-                # Clean up temporary artwork folders
-                remove_artwork_tempdirs()
+                
+                # Verify that the file was actually produced
+                if not os.path.exists(track_obj.download_path):
+                    return False, "Download failed (output file missing)"
+                    
                 return True, None
             finally:
-                pass # No need to restore since we used a temporary Database object
+                if client and hasattr(client, 'session'):
+                    await client.session.close()
             
         except Exception as e:
             # Fallback check: if it failed because it was already there
@@ -444,12 +491,25 @@ class StreamripService:
                 if not album_obj:
                     return False, "Failed to resolve album metadata (resolve returned None)"
                     
+                expected_tracks = len(album_obj.tracks)
                 await album_obj.rip()
-                # Clean up temporary artwork folders
-                remove_artwork_tempdirs()
+                
+                # Check for files in the album folder
+                actual_files = 0
+                for root, dirs, filenames in os.walk(album_obj.folder):
+                    for f in filenames:
+                        if f.lower().endswith(('.flac', '.mp3', '.m4a', '.alac', '.ogg', '.wav')):
+                            actual_files += 1
+                
+                if actual_files == 0:
+                    return False, "Album download failed (no files produced)"
+                elif actual_files < expected_tracks:
+                    return False, f"Incomplete download: {actual_files}/{expected_tracks} tracks saved"
+                    
                 return True, None
             finally:
-                pass
+                if client and hasattr(client, 'session'):
+                    await client.session.close()
             
         except Exception as e:
             if "already downloaded" in str(e).lower() or "marked as downloaded" in str(e).lower():
