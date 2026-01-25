@@ -28,12 +28,14 @@ cp .env.example .env
 ```
 
 ### 2. Streamrip Config
-Create a `config` directory and add your `streamrip.toml` (requires valid streaming service accounts):
+Copy the example config and add your streaming service credentials:
 ```bash
 mkdir -p config
-# Place your streamrip.toml in config/
+cp config/streamrip.toml.example config/streamrip.toml
+# Edit config/streamrip.toml with your account details
 ```
-*Refer to the [streamrip documentation](https://github.com/nathom/streamrip) for configuration details.*
+> [!TIP]
+> Riparr focuses on credentials in the `streamrip.toml`. Download paths and quality are managed through the web interface or `.env`.
 
 ---
 
@@ -79,12 +81,11 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./data:/app/data                # Database and app state
-      - /volume1/music:/media/Music      # Your music library path
+      - ./instance:/app/instance         # Database and app state
+      - ./music:/app/music               # Your music library path
       - ./config:/app/config             # streamrip.toml location
     environment:
       - SECRET_KEY=your_secret_here
-      - MUSIC_OUTPUT_PATH=/media/Music
 ```
 
 ---

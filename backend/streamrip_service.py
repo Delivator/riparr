@@ -48,6 +48,27 @@ class StreamripService:
         except Exception as e:
             logger.error(f"Error loading streamrip config: {e}")
             self.config = StreamripConfig.defaults()
+        
+        self._fix_config()
+
+    def _fix_config(self):
+        """Automatically fix common configuration issues"""
+        if not self.config:
+            return
+            
+        # 1. Qobuz MD5 Password Hashing
+        try:
+            import re
+            import hashlib
+            c = self.config.session.qobuz
+            if not c.use_auth_token and c.password_or_token:
+                # Check if it's a 32-character hex string (MD5)
+                if not re.match(r'^[a-fA-F0-9]{32}$', str(c.password_or_token)):
+                    logger.info("Qobuz password provided in cleartext. Hashing it for compatibility.")
+                    hashed = hashlib.md5(c.password_or_token.encode('utf-8')).hexdigest()
+                    c.password_or_token = hashed
+        except Exception as e:
+            logger.warning(f"Failed to auto-fix Qobuz config: {e}")
     
     def _init_db(self):
         """Initialize streamrip database"""
@@ -82,7 +103,20 @@ class StreamripService:
             raise ValueError(f"Unsupported service: {service}")
             
         # Login
-        await client.login()
+        try:
+            await client.login()
+        except Exception as e:
+            error_msg = str(e)
+            if service == 'qobuz' and 'AuthenticationError' in error_msg:
+                error_msg = ("Qobuz authentication failed. Please check your email and password. "
+                            "Note: Passwords must be exactly as set on Qobuz. "
+                            "If you believe they are correct, please try clearing the app_id and secrets in your config.")
+            elif service == 'deezer' and 'arl' in error_msg.lower():
+                 error_msg = "Deezer authentication failed. Your ARL token might be invalid or expired."
+            
+            logger.error(f"Login failed for {service}: {error_msg}")
+            raise Exception(error_msg)
+            
         return client
     
     async def search_track_async(self, query, service=None, limit=10):

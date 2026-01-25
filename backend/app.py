@@ -300,12 +300,12 @@ def process_request(request_id):
         return jsonify({'error': 'Admin access required'}), 403
     
     download_service = DownloadService(
-        config_path=app.config.get('STREAMRIP_CONFIG_PATH', 'config/streamrip.toml'),
-        primary_service=app.config.get('PRIMARY_STREAMING_SERVICE', 'qobuz'),
-        fallback_service=app.config.get('FALLBACK_STREAMING_SERVICE', 'deezer'),
-        temp_path=app.config.get('TEMP_DOWNLOAD_PATH', '/tmp/riparr/downloads'),
-        output_path=app.config.get('MUSIC_OUTPUT_PATH', '/media/Music'),
-        path_pattern=app.config.get('MUSIC_PATH_PATTERN', '{artist}/{artist} - {title}'),
+        config_path=app.config.get('STREAMRIP_CONFIG_PATH'),
+        primary_service=app.config.get('PRIMARY_STREAMING_SERVICE'),
+        fallback_service=app.config.get('FALLBACK_STREAMING_SERVICE'),
+        temp_path=app.config.get('TEMP_DOWNLOAD_PATH'),
+        output_path=app.config.get('MUSIC_OUTPUT_PATH'),
+        path_pattern=app.config.get('MUSIC_PATH_PATTERN'),
         socketio=socketio
     )
     import threading

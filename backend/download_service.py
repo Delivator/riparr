@@ -22,10 +22,31 @@ class DownloadService:
             primary_service=primary_service,
             fallback_service=fallback_service
         )
-        self.temp_path = temp_path or '/tmp/riparr/downloads'
-        self.output_path = output_path or '/media/Music'
-        self.path_pattern = path_pattern or '{artist}/{artist} - {title}'
+        self.temp_path = temp_path
+        self.output_path = output_path
+        self.path_pattern = path_pattern
         self.socketio = socketio
+
+    def _get_temp_path(self):
+        if self.temp_path: return self.temp_path
+        try:
+            return current_app.config.get('TEMP_DOWNLOAD_PATH')
+        except:
+            return './downloads/temp'
+
+    def _get_output_path(self):
+        if self.output_path: return self.output_path
+        try:
+            return current_app.config.get('MUSIC_OUTPUT_PATH')
+        except:
+            return './music'
+
+    def _get_path_pattern(self):
+        if self.path_pattern: return self.path_pattern
+        try:
+            return current_app.config.get('MUSIC_PATH_PATTERN')
+        except:
+            return '{artist}/{artist} - {title}'
 
     def _emit_status_update(self, request):
         """Emit status update via WebSocket"""
@@ -167,7 +188,7 @@ class DownloadService:
             return False, "No streaming source available"
         
         # Create temp directory
-        abs_temp_path = os.path.abspath(self.temp_path)
+        abs_temp_path = os.path.abspath(self._get_temp_path())
         os.makedirs(abs_temp_path, exist_ok=True)
         
         temp_download_path = os.path.join(abs_temp_path, f"request_{request.id}")
@@ -247,7 +268,7 @@ class DownloadService:
                 # This respects Streamrip's structure (Artist/Album...)
                 for item in top_level_items:
                     src = os.path.join(request.download_path, item)
-                    dst = os.path.join(self.output_path, item)
+                    dst = os.path.join(self._get_output_path(), item)
                     
                     if os.path.isdir(src):
                         if os.path.exists(dst):
@@ -260,7 +281,7 @@ class DownloadService:
                 
                 # Update request with the primary directory (usually artist name)
                 # This isn't perfect for the DB, but good enough for tracking
-                request.download_path = os.path.join(self.output_path, top_level_items[0])
+                request.download_path = os.path.join(self._get_output_path(), top_level_items[0])
             else:
                 # Build destination path using pattern for tracks or unstructured albums
                 dest_path = self._build_destination_path(request)
@@ -309,7 +330,7 @@ class DownloadService:
     
     def _build_destination_path(self, request):
         """Build destination path using pattern"""
-        pattern = self.path_pattern
+        pattern = self._get_path_pattern()
         
         # Replace placeholders
         replacements = {
@@ -321,7 +342,7 @@ class DownloadService:
         for placeholder, value in replacements.items():
             pattern = pattern.replace(placeholder, self._sanitize_path(value))
         
-        return os.path.join(self.output_path, pattern)
+        return os.path.join(self._get_output_path(), pattern)
     
     def _sanitize_path(self, path):
         """Sanitize path component"""
