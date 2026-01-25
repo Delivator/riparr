@@ -425,7 +425,7 @@ class StreamripService:
             'artist': self._extract_artist(item),
             'artist_id': self._extract_artist_id(item),
             'year': year,
-            'track_count': item.get('tracks_count') or item.get('nb_tracks'),
+            'track_count': item.get('track_count') or item.get('tracks_count') or item.get('nb_tracks'),
             'quality': quality_label,
             'service': service,
             'cover_url': self._extract_cover_url(item, service),

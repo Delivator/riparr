@@ -792,17 +792,44 @@ select option {
     transform: translateY(-5px);
 }
 
-.release-item-img {
+.release-card-cover-container {
+    position: relative;
     width: 100%;
     aspect-ratio: 1/1;
-    border-radius: 12px;
     margin-bottom: 12px;
+}
+
+.release-item-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
     object-fit: cover;
 }
 
+
+.release-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+}
+
+.release-meta span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+
+
 .release-card h4 {
-    font-size: 0.95em;
-    margin-bottom: 5px;
+    font-size: 1em;
+    font-weight: 600;
+    margin-bottom: 8px;
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;

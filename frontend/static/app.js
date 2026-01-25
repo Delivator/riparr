@@ -394,11 +394,17 @@ async function showArtistReleases(artistId, service, artistName) {
                 <div class="releases-grid">
                     ${data.results.map(release => `
                         <div class="release-card">
-                            <img src="${release.cover_url || '/static/img/default-cover.png'}" 
-                                 class="release-item-img"
-                                 onerror="this.src='/static/img/default-cover.png'">
+                            <div class="release-card-cover-container">
+                                <img src="${release.cover_url || '/static/img/default-cover.png'}" 
+                                     class="release-item-img"
+                                     onerror="this.src='/static/img/default-cover.png'">
+                                ${release.quality && release.quality !== 'Unknown' ? `<span class="badge badge-quality">${escapeHtml(release.quality)}</span>` : ''}
+                            </div>
                             <h4 title="${escapeHtml(release.title)}">${escapeHtml(release.title)}</h4>
-                            <p>${release.year || release.first_release_date?.substring(0, 4) || 'Unknown Year'}</p>
+                            <div class="release-meta text-truncate">
+                                <span><i class="fas fa-calendar"></i> ${release.year || 'Unknown'}</span>
+                                ${release.track_count ? `<span><i class="fas fa-list"></i> ${release.track_count} tracks</span>` : ''}
+                            </div>
                             <button class="btn-primary btn-block request-btn"
                                 data-type="album"
                                 data-title="${escapeHtml(release.title)}"
