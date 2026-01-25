@@ -1,46 +1,99 @@
-# Streamrip Configuration Template for v2.1.0
-# Copy this file to config/streamrip.toml and fill in your credentials
-# See: https://github.com/nathom/streamrip/wiki/Scripting-with-Streamrip-v2
+# Streamrip Configuration Template
+# Copy this file to config/streamrip.toml and fill in your credentials.
 
-[session]
-[session.downloads]
-folder = "/tmp/riparr/downloads"
-source_subdirectories = true
+[downloads]
+folder = "/tmp"
+source_subdirectories = false
+disc_subdirectories = true
+concurrency = true
+max_connections = 6
+requests_per_minute = 60
+verify_ssl = true
 
-[session.qobuz]
-# Get credentials from https://www.qobuz.com/
-email_or_userid = "YOUR_QOBUZ_EMAIL"
-password_or_token = "YOUR_QOBUZ_PASSWORD"
-quality = 3  # 1: MP3 320, 2: FLAC 16bit/44.1kHz, 3: FLAC 24bit/96kHz
+[qobuz]
+quality = 3
+email_or_userid = ""
+# You can enter your plaintext password here; Riparr will hash it for you.
+password_or_token = ""
+use_auth_token = false
+download_booklets = true
+app_id = ""
+secrets = []
 
-[session.deezer]
-# Deezer ARL token - get from browser cookies after logging in
-arl = "YOUR_DEEZER_ARL_TOKEN"
-quality = 2  # 0: MP3 128, 1: MP3 320, 2: FLAC
+[deezer]
+quality = 2
+arl = ""
+use_deezloader = true
+deezloader_warnings = true
 
-[session.tidal]
-# Get credentials from https://tidal.com/
-user_id = "YOUR_TIDAL_USERNAME"
-access_token = "YOUR_TIDAL_ACCESS_TOKEN"
-quality = 3  # 0: AAC 96, 1: AAC 320, 2: FLAC, 3: MQA
+[tidal]
+quality = 3
+download_videos = true
+user_id = ""
+country_code = ""
+access_token = ""
+refresh_token = ""
+token_expiry = ""
 
-[session.soundcloud]
-client_id = "YOUR_SOUNDCLOUD_CLIENT_ID"
+[soundcloud]
+quality = 0
+client_id = ""
+app_version = ""
 
-[session.youtube]
-video_downloads_folder = "/tmp/riparr/downloads/youtube"
+[youtube]
+quality = 0
+download_videos = false
+video_downloads_folder = ""
 
 [database]
-downloads_path = "/tmp/riparr/downloads/downloads.db"
+downloads_enabled = true
+downloads_path = "config/downloads.db"
+failed_downloads_enabled = true
+failed_downloads_path = "config/failed_downloads.db"
 
 [conversion]
 enabled = false
-codec = "FLAC"
+codec = "ALAC"
 sampling_rate = 48000
 bit_depth = 24
+lossy_bitrate = 320
+
+[qobuz_filters]
+extras = false
+repeats = false
+non_albums = false
+features = false
+non_studio_albums = false
+non_remaster = false
+
+[artwork]
+embed = true
+embed_size = "large"
+embed_max_width = -1
+save_artwork = true
+saved_max_width = -1
 
 [metadata]
 set_playlist_to_album = true
-renew_artwork = false
-embed_cover = true
-cover_size = "large"
+renumber_playlist_tracks = true
+exclude = []
+
+[filepaths]
+add_singles_to_folder = false
+folder_format = "{albumartist} - {title} ({year}) [{container}] [{bit_depth}B-{sampling_rate}kHz]"
+track_format = "{tracknumber:02}. {artist} - {title}{explicit}"
+restrict_characters = false
+truncate_to = 120
+
+[lastfm]
+source = "qobuz"
+fallback_source = ""
+
+[cli]
+text_output = true
+progress_bars = true
+max_search_results = 100
+
+[misc]
+version = "2.0.6"
+check_for_updates = true

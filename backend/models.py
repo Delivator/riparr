@@ -90,6 +90,7 @@ class MusicRequest(db.Model):
             'artist': self.artist,
             'album': self.album,
             'status': self.status.value,
+            'error_message': self.error_message,
             'streaming_service': self.streaming_service,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,

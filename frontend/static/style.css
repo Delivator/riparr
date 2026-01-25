@@ -274,6 +274,20 @@ select {
     color-scheme: dark;
     transition: all 0.3s ease;
     font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.select-wrapper {
+    position: relative;
+}
+
+.select-wrapper::after {
+    content: "▼";
+    font-size: 1rem;
+    top: 16px;
+    right: 16px;
+    position: absolute;
 }
 
 input:focus,
@@ -424,6 +438,40 @@ select option {
     font-size: 0.75rem;
     font-weight: 700;
     border: 1px solid rgba(251, 191, 36, 0.3);
+    z-index: 10;
+}
+
+.badge-explicit {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: #ef4444;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.badge-version {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    background: rgba(59, 130, 246, 0.8);
+    backdrop-filter: blur(4px);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    z-index: 10;
+    max-width: 80%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .search-card-content {
@@ -569,6 +617,16 @@ select option {
     gap: 16px;
 }
 
+.request-error {
+    color: #f87171;
+    font-size: 0.9em;
+    background: rgba(239, 68, 68, 0.1);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border-left: 3px solid #f87171;
+    margin-top: 4px;
+}
+
 .request-date {
     color: rgba(255, 255, 255, 0.3);
     font-size: 0.85em;
@@ -688,4 +746,146 @@ select option {
 
 #refreshRequestsBtn {
     margin-bottom: 16px;
+}
+
+/* Modal Styling */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(8px);
+}
+
+.modal-content {
+    background: var(--card-bg);
+    margin: 5% auto;
+    padding: 0;
+    border: 1px solid var(--card-border);
+    width: 80%;
+    max-width: 1000px;
+    border-radius: 24px;
+    box-shadow: var(--glass-shadow);
+    overflow: hidden;
+}
+
+.modal-header {
+    padding: 30px 40px;
+    border-bottom: 1px solid var(--card-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.8em;
+}
+
+.close-modal {
+    color: var(--text-secondary);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.close-modal:hover {
+    color: var(--text-primary);
+}
+
+.modal-body {
+    padding: 40px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+/* Artist Link */
+.artist-link {
+    color: var(--primary-color);
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.artist-link:hover {
+    color: white;
+    text-decoration: underline;
+}
+
+/* Releases List in Modal */
+.releases-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.release-card {
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 15px;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.release-card:hover {
+    background: rgba(30, 41, 59, 0.9);
+    transform: translateY(-5px);
+}
+
+.release-card-cover-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1/1;
+    margin-bottom: 12px;
+}
+
+.release-item-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+    object-fit: cover;
+}
+
+
+.release-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+}
+
+.release-meta span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+
+
+.release-card h4 {
+    font-size: 1em;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.release-card p {
+    font-size: 0.8em;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
 }

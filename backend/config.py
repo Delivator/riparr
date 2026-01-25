@@ -38,8 +38,8 @@ class Config:
     
     # Download settings
     DOWNLOAD_QUALITY = os.environ.get('DOWNLOAD_QUALITY', '3')  # Highest quality
-    TEMP_DOWNLOAD_PATH = os.environ.get('TEMP_DOWNLOAD_PATH', '/tmp/riparr/downloads')
-    MUSIC_OUTPUT_PATH = os.environ.get('MUSIC_OUTPUT_PATH', '/media/Music')
+    TEMP_DOWNLOAD_PATH = os.environ.get('TEMP_DOWNLOAD_PATH', os.path.join(BASE_DIR, 'downloads', 'temp'))
+    MUSIC_OUTPUT_PATH = os.environ.get('MUSIC_OUTPUT_PATH', os.path.join(BASE_DIR, 'music'))
     MUSIC_PATH_PATTERN = os.environ.get('MUSIC_PATH_PATTERN', '{artist}/{artist} - {title}')
     
     # MusicBrainz

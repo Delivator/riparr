@@ -103,6 +103,31 @@ class MusicBrainzService:
         except Exception as e:
             return None, str(e)
     
+    def get_artist_releases(self, artist_id, limit=50):
+        """Get all release groups (albums, singles, etc.) for an artist from MusicBrainz"""
+        try:
+            # We use browse_release_groups because search is better for text, 
+            # browse is better for linking to an entity
+            result = mb.browse_release_groups(artist=artist_id, limit=limit)
+            
+            release_groups = []
+            for rg in result.get('release-group-list', []):
+                release_groups.append({
+                    'id': rg['id'],
+                    'title': rg.get('title'),
+                    'type': rg.get('type'),
+                    'primary_type': rg.get('primary-type'),
+                    'secondary_types': rg.get('secondary-type-list', []),
+                    'first_release_date': rg.get('first-release-date'),
+                })
+            
+            # Sort by date descending
+            release_groups.sort(key=lambda x: x.get('first_release_date') or '', reverse=True)
+            
+            return release_groups, None
+        except Exception as e:
+            return None, str(e)
+    
     def get_recording_details(self, recording_id):
         """Get detailed information about a recording"""
         try:

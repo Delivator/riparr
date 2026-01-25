@@ -59,6 +59,18 @@ function setupEventListeners() {
 
     // Delegated listener for search results
     document.getElementById('searchResults')?.addEventListener('click', (e) => {
+        // Artist link click
+        const artistLink = e.target.closest('.artist-link');
+        if (artistLink) {
+            e.preventDefault();
+            showArtistReleases(
+                artistLink.dataset.artistId,
+                artistLink.dataset.service,
+                artistLink.dataset.artistName
+            );
+            return;
+        }
+
         const btn = e.target.closest('.request-btn');
         if (btn) {
             requestFromSearch(
@@ -69,6 +81,18 @@ function setupEventListeners() {
                 btn.dataset.service,
                 btn.dataset.album
             );
+        }
+    });
+
+    // Close modal listeners
+    document.querySelector('.close-modal')?.addEventListener('click', () => {
+        document.getElementById('releasesModal').style.display = 'none';
+    });
+
+    window.addEventListener('click', (e) => {
+        const modal = document.getElementById('releasesModal');
+        if (e.target === modal) {
+            modal.style.display = 'none';
         }
     });
 }
@@ -286,6 +310,8 @@ function displaySearchResults(results, type, searchServices) {
                     <div class="search-card-cover">
                         <img src="${coverUrl}" alt="${escapeHtml(title)}" onerror="this.src='/static/img/default-cover.png'">
                         ${quality ? `<span class="badge badge-quality">${escapeHtml(quality)}</span>` : ''}
+                        ${result.explicit ? `<span class="badge badge-explicit">Explicit</span>` : ''}
+                        ${result.version ? `<span class="badge badge-version" title="${escapeHtml(result.version)}">${escapeHtml(result.version)}</span>` : ''}
                     </div>
                     <div class="search-card-content">
                         <div class="search-card-header">
@@ -293,7 +319,16 @@ function displaySearchResults(results, type, searchServices) {
                                 ${showSourceBadge ? `<span class="badge-source ${service}">${service}</span>` : ''}
                                 ${escapeHtml(title)}
                             </h4>
-                            <p class="search-card-artist text-truncate">${escapeHtml(artist)}</p>
+                            <p class="search-card-artist text-truncate">
+                                ${result.artist_id ? `
+                                    <span class="artist-link" 
+                                        data-artist-id="${result.artist_id}" 
+                                        data-service="${service}"
+                                        data-artist-name="${escapeHtml(artist)}">
+                                        ${escapeHtml(artist)}
+                                    </span>
+                                ` : escapeHtml(artist)}
+                            </p>
                         </div>
                         <div class="search-card-details">
                             ${album ? `<p class="text-truncate"><span>Album:</span> ${escapeHtml(album)}</p>` : ''}
@@ -331,6 +366,84 @@ function displaySearchResults(results, type, searchServices) {
     }).join('')}
         </div>
     `;
+}
+
+async function showArtistReleases(artistId, service, artistName) {
+    const modal = document.getElementById('releasesModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+
+    modalTitle.textContent = `Releases for ${artistName}`;
+    modalBody.innerHTML = `
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Fetching discography...</p>
+        </div>
+    `;
+    modal.style.display = 'block';
+
+    try {
+        const response = await fetch(`${API_BASE}/artist/${service}/${artistId}/releases`);
+        const data = await response.json();
+
+        if (response.ok) {
+            if (!data.results || data.results.length === 0) {
+                modalBody.innerHTML = '<p class="no-requests">No releases found for this artist.</p>';
+                return;
+            }
+
+            modalBody.innerHTML = `
+                <div class="releases-grid">
+                    ${data.results.map(release => `
+                        <div class="release-card">
+                            <div class="release-card-cover-container">
+                                <img src="${release.cover_url || '/static/img/default-cover.png'}" 
+                                     class="release-item-img"
+                                     onerror="this.src='/static/img/default-cover.png'">
+                                ${release.quality && release.quality !== 'Unknown' ? `<span class="badge badge-quality">${escapeHtml(release.quality)}</span>` : ''}
+                                ${release.explicit ? `<span class="badge badge-explicit">Explicit</span>` : ''}
+                                ${release.version ? `<span class="badge badge-version" title="${escapeHtml(release.version)}">${escapeHtml(release.version)}</span>` : ''}
+                            </div>
+                            <h4 title="${escapeHtml(release.title)}">${escapeHtml(release.title)}</h4>
+                            <div class="release-meta text-truncate">
+                                <span><i class="fas fa-calendar"></i> ${release.year || 'Unknown'}</span>
+                                ${release.track_count ? `<span><i class="fas fa-list"></i> ${release.track_count} tracks</span>` : ''}
+                            </div>
+                            <button class="btn-primary btn-block request-btn"
+                                data-type="album"
+                                data-title="${escapeHtml(release.title)}"
+                                data-artist="${escapeHtml(artistName)}"
+                                data-id="${release.id}"
+                                data-service="${service}"
+                                data-album="${escapeHtml(release.title)}">
+                                Request Album
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            // Setup listeners for buttons in modal
+            modalBody.querySelectorAll('.request-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    requestFromSearch(
+                        btn.dataset.type,
+                        btn.dataset.title,
+                        btn.dataset.artist,
+                        btn.dataset.id,
+                        btn.dataset.service,
+                        btn.dataset.album
+                    );
+                });
+            });
+
+        } else {
+            modalBody.innerHTML = `<p class="error-message">${data.error || 'Failed to fetch releases'}</p>`;
+        }
+    } catch (error) {
+        modalBody.innerHTML = '<p class="error-message">Network error. Please try again.</p>';
+        console.error('Fetch releases error:', error);
+    }
 }
 
 function formatDuration(seconds) {
@@ -467,11 +580,15 @@ function displayRequests(requests, containerId) {
                     ${req.album ? `<span><i class="fas fa-compact-disc"></i> ${escapeHtml(req.album)}</span>` : ''}
                     <span><i class="fas fa-tag"></i> ${req.content_type}</span>
                 </div>
+                ${req.error_message ? `<div class="request-error"><i class="fas fa-exclamation-triangle"></i> ${escapeHtml(req.error_message)}</div>` : ''}
                 <div class="request-date">${new Date(req.created_at).toLocaleString()}</div>
             </div>
             <div class="request-actions">
                  ${currentUser?.role === 'admin' && req.status === 'pending' ? `
                     <button class="btn-secondary" onclick="processRequest(${req.id})">Process</button>
+                ` : ''}
+                ${(currentUser?.role === 'admin' || currentUser?.id === req.user_id) && req.status === 'failed' ? `
+                    <button class="btn-primary" onclick="processRequest(${req.id})">Retry</button>
                 ` : ''}
             </div>
         </div>

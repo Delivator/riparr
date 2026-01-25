@@ -38,10 +38,12 @@
                 </div>
                 <div class="form-group">
                     <label for="loginProvider">Authentication Provider</label>
-                    <select id="loginProvider" name="provider">
-                        <option value="local">Local</option>
-                        <option value="jellyfin">Jellyfin</option>
-                    </select>
+                    <div class="select-wrapper">
+                        <select id="loginProvider" name="provider">
+                            <option value="local">Local</option>
+                            <option value="jellyfin" disabled>Jellyfin (Not implemented yet)</option>
+                        </select>
+                    </div>
                 </div>
                 <button type="submit" class="btn-primary">Login</button>
                 <div id="loginError" class="error-message" style="display: none;"></div>
@@ -100,15 +102,18 @@
                         <div class="form-row">
                             <div class="form-group flex-2">
                                 <label for="searchQuery">Search Query</label>
-                                <input type="text" id="searchQuery" placeholder="Enter song, album, or artist name">
+                                <input type="text" id="searchQuery" placeholder="Enter song, album, or artist name"
+                                    onkeydown="if(event.key === 'Enter') document.getElementById('searchBtn').click()">
                             </div>
                             <div class="form-group flex-1">
                                 <label for="searchType">Type</label>
-                                <select id="searchType">
-                                    <option value="song">Song</option>
-                                    <option value="album">Album</option>
-                                    <option value="artist">Artist</option>
-                                </select>
+                                <div class="select-wrapper">
+                                    <select id="searchType">
+                                        <option value="album" selected>Album</option>
+                                        <option value="song">Song</option>
+                                        <option value="artist">Artist</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                         <div class="form-group">
@@ -153,11 +158,13 @@
                         </div>
                         <div class="form-group">
                             <label for="requestType">Type</label>
-                            <select id="requestType">
-                                <option value="song">Song</option>
-                                <option value="album">Album</option>
-                                <option value="artist">Artist</option>
-                            </select>
+                            <div class="select-wrapper">
+                                <select id="requestType">
+                                    <option value="song">Song</option>
+                                    <option value="album">Album</option>
+                                    <option value="artist">Artist</option>
+                                </select>
+                            </div>
                         </div>
                         <button type="submit" class="btn-primary">Submit Request</button>
                     </form>
@@ -192,30 +199,36 @@
                         <div class="form-row">
                             <div class="form-group flex-1">
                                 <label for="primaryService">Primary Service</label>
-                                <select id="primaryService">
-                                    <option value="qobuz">Qobuz</option>
-                                    <option value="deezer">Deezer</option>
-                                    <option value="tidal">Tidal</option>
-                                </select>
+                                <div class="select-wrapper">
+                                    <select id="primaryService">
+                                        <option value="qobuz">Qobuz</option>
+                                        <option value="deezer">Deezer</option>
+                                        <option value="tidal">Tidal</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="form-group flex-1">
                                 <label for="fallbackService">Fallback Service</label>
-                                <select id="fallbackService">
-                                    <option value="deezer">Deezer</option>
-                                    <option value="qobuz">Qobuz</option>
-                                    <option value="tidal">Tidal</option>
-                                </select>
+                                <div class="select-wrapper">
+                                    <select id="fallbackService">
+                                        <option value="deezer">Deezer</option>
+                                        <option value="qobuz">Qobuz</option>
+                                        <option value="tidal">Tidal</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
                         <h3>Download Settings</h3>
                         <div class="form-group">
                             <label for="downloadQuality">Quality</label>
-                            <select id="downloadQuality">
-                                <option value="3">Highest (Lossless)</option>
-                                <option value="2">High (320kbps)</option>
-                                <option value="1">Medium (128kbps)</option>
-                            </select>
+                            <div class="select-wrapper">
+                                <select id="downloadQuality">
+                                    <option value="3">Highest (Lossless)</option>
+                                    <option value="2">High (320kbps)</option>
+                                    <option value="1">Medium (128kbps)</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label for="outputPath">Output Path</label>
@@ -236,6 +249,19 @@
                     <div id="adminRequestsList" class="requests-list"></div>
                 </div>
             </section>
+        </div>
+    </div>
+
+    <!-- Releases Modal -->
+    <div id="releasesModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Artist Releases</h2>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div id="modalBody" class="modal-body">
+                <!-- Releases will be loaded here -->
+            </div>
         </div>
     </div>
 

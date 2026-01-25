@@ -22,10 +22,31 @@ class DownloadService:
             primary_service=primary_service,
             fallback_service=fallback_service
         )
-        self.temp_path = temp_path or '/tmp/riparr/downloads'
-        self.output_path = output_path or '/media/Music'
-        self.path_pattern = path_pattern or '{artist}/{artist} - {title}'
+        self.temp_path = temp_path
+        self.output_path = output_path
+        self.path_pattern = path_pattern
         self.socketio = socketio
+
+    def _get_temp_path(self):
+        if self.temp_path: return self.temp_path
+        try:
+            return current_app.config.get('TEMP_DOWNLOAD_PATH')
+        except:
+            return './downloads/temp'
+
+    def _get_output_path(self):
+        if self.output_path: return self.output_path
+        try:
+            return current_app.config.get('MUSIC_OUTPUT_PATH')
+        except:
+            return './music'
+
+    def _get_path_pattern(self):
+        if self.path_pattern: return self.path_pattern
+        try:
+            return current_app.config.get('MUSIC_PATH_PATTERN')
+        except:
+            return '{artist}/{artist} - {title}'
 
     def _emit_status_update(self, request):
         """Emit status update via WebSocket"""
@@ -46,6 +67,7 @@ class DownloadService:
         try:
             # Update status to searching
             request.status = RequestStatus.SEARCHING
+            request.error_message = None
             db.session.commit()
             self._emit_status_update(request)
             
@@ -167,7 +189,7 @@ class DownloadService:
             return False, "No streaming source available"
         
         # Create temp directory
-        abs_temp_path = os.path.abspath(self.temp_path)
+        abs_temp_path = os.path.abspath(self._get_temp_path())
         os.makedirs(abs_temp_path, exist_ok=True)
         
         temp_download_path = os.path.join(abs_temp_path, f"request_{request.id}")
@@ -233,34 +255,36 @@ class DownloadService:
         
         try:
             # Check if the downloader already created a folder structure (common for albums)
-            # If so, we want to NOT nest it inside our own pattern.
             has_subfolders = False
-            top_level_items = os.listdir(request.download_path)
-            for item in top_level_items:
-                if os.path.isdir(os.path.join(request.download_path, item)):
-                    has_subfolders = True
-                    break
+            if os.path.isdir(request.download_path):
+                top_level_items = os.listdir(request.download_path)
+                for item in top_level_items:
+                    if os.path.isdir(os.path.join(request.download_path, item)) and not item.startswith('.'):
+                        has_subfolders = True
+                        break
 
             if has_subfolders and request.content_type.value == 'album':
-                logger.info("Detected pre-structured album download. Moving contents directly to output path.")
-                # We move each item from the temp dir to the output_path root
-                # This respects Streamrip's structure (Artist/Album...)
-                for item in top_level_items:
-                    src = os.path.join(request.download_path, item)
-                    dst = os.path.join(self.output_path, item)
-                    
-                    if os.path.isdir(src):
-                        if os.path.exists(dst):
-                            # Merge directories if they exist
-                            self._merge_directories(src, dst)
-                        else:
-                            shutil.move(src, dst)
-                    else:
-                        shutil.move(src, dst)
+                # Find the real album root (skip redundant Artist folders)
+                real_src = self._find_real_album_root(request.download_path)
                 
-                # Update request with the primary directory (usually artist name)
-                # This isn't perfect for the DB, but good enough for tracking
-                request.download_path = os.path.join(self.output_path, top_level_items[0])
+                dest_base = self._build_destination_path(request)
+                parent_dest = os.path.dirname(dest_base)
+                os.makedirs(parent_dest, exist_ok=True)
+                
+                # Use the metadata-rich folder name from source
+                metadata_folder_name = os.path.basename(real_src)
+                final_dst = os.path.join(parent_dest, metadata_folder_name)
+                
+                logger.info(f"Moving {real_src} to {final_dst}")
+                
+                if os.path.exists(final_dst) and real_src != final_dst:
+                    self._merge_directories(real_src, final_dst)
+                    if os.path.exists(real_src):
+                        shutil.rmtree(real_src)
+                else:
+                    shutil.move(real_src, final_dst)
+                
+                request.download_path = final_dst
             else:
                 # Build destination path using pattern for tracks or unstructured albums
                 dest_path = self._build_destination_path(request)
@@ -292,6 +316,23 @@ class DownloadService:
             logger.exception("Failed to move files to destination")
             return False, str(e)
 
+    def _find_real_album_root(self, path):
+        """Find the folder that actually contains tracks or multiple subfolders"""
+        current = path
+        audio_exts = ('.flac', '.mp3', '.m4a', '.alac', '.ogg', '.wav', '.wma', '.aac', '.opus')
+        while True:
+            items = os.listdir(current)
+            # Filter for visible folders
+            visible_dirs = [i for i in items if os.path.isdir(os.path.join(current, i)) and not i.startswith('.')]
+            # Filter for audio files
+            audio_files = [i for i in items if i.lower().endswith(audio_exts)]
+            
+            if audio_files or len(visible_dirs) != 1:
+                return current
+            
+            # If exactly one subdirectory and no tracks, go deeper
+            current = os.path.join(current, visible_dirs[0])
+
     def _merge_directories(self, src, dst):
         """Recursively merge directories from src to dst"""
         for item in os.listdir(src):
@@ -309,7 +350,7 @@ class DownloadService:
     
     def _build_destination_path(self, request):
         """Build destination path using pattern"""
-        pattern = self.path_pattern
+        pattern = self._get_path_pattern()
         
         # Replace placeholders
         replacements = {
@@ -321,7 +362,7 @@ class DownloadService:
         for placeholder, value in replacements.items():
             pattern = pattern.replace(placeholder, self._sanitize_path(value))
         
-        return os.path.join(self.output_path, pattern)
+        return os.path.join(self._get_output_path(), pattern)
     
     def _sanitize_path(self, path):
         """Sanitize path component"""

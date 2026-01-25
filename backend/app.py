@@ -1,3 +1,19 @@
+# riparr - A music requester and download management system
+# Copyright (C) 2026 Delivator
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 from flask import Flask, jsonify, render_template, request, session
 from flask_cors import CORS
 from flask_socketio import SocketIO
@@ -278,18 +294,23 @@ def get_request(request_id):
 @app.route('/api/requests/<int:request_id>/process', methods=['POST'])
 @login_required
 def process_request(request_id):
-    """Process a music request (admin only)"""
-    logger.info(f"API CALL: POST /api/requests/{request_id}/process")
+    music_request = MusicRequest.query.get(request_id)
+    if not music_request:
+        return jsonify({'error': 'Request not found'}), 404
+        
     if not current_user.is_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+        if music_request.user_id != current_user.id:
+            return jsonify({'error': 'Unauthorized'}), 403
+        if music_request.status not in [RequestStatus.PENDING, RequestStatus.FAILED]:
+            return jsonify({'error': 'Can only retry failed or pending requests'}), 400
     
     download_service = DownloadService(
-        config_path=app.config.get('STREAMRIP_CONFIG_PATH', 'config/streamrip.toml'),
-        primary_service=app.config.get('PRIMARY_STREAMING_SERVICE', 'qobuz'),
-        fallback_service=app.config.get('FALLBACK_STREAMING_SERVICE', 'deezer'),
-        temp_path=app.config.get('TEMP_DOWNLOAD_PATH', '/tmp/riparr/downloads'),
-        output_path=app.config.get('MUSIC_OUTPUT_PATH', '/media/Music'),
-        path_pattern=app.config.get('MUSIC_PATH_PATTERN', '{artist}/{artist} - {title}'),
+        config_path=app.config.get('STREAMRIP_CONFIG_PATH'),
+        primary_service=app.config.get('PRIMARY_STREAMING_SERVICE'),
+        fallback_service=app.config.get('FALLBACK_STREAMING_SERVICE'),
+        temp_path=app.config.get('TEMP_DOWNLOAD_PATH'),
+        output_path=app.config.get('MUSIC_OUTPUT_PATH'),
+        path_pattern=app.config.get('MUSIC_PATH_PATTERN'),
         socketio=socketio
     )
     import threading
@@ -371,10 +392,52 @@ def search_streaming():
         if streamrip_service.fallback_service:
             services.append(streamrip_service.fallback_service)
 
-    # Use parallel search
+    # Separate MusicBrainz from streaming services
+    streaming_services = [s for s in services if s != 'musicbrainz']
+    mb_service = None
+    if 'musicbrainz' in services:
+        mb_service = MusicBrainzService()
+
+    # Use parallel search for streaming services
     import asyncio
-    results, error = asyncio.run(streamrip_service.parallel_search(query, services, content_type))
+    streaming_results = []
+    streaming_error = None
+    if streaming_services:
+        streaming_results, streaming_error = asyncio.run(streamrip_service.parallel_search(query, streaming_services, content_type))
     
+    # Handle MusicBrainz search
+    mb_results = []
+    mb_error = None
+    if mb_service:
+        if content_type == 'track':
+            mb_results, mb_error = mb_service.search_song(query) or ([], None)
+        elif content_type == 'album':
+            mb_results, mb_error = mb_service.search_album(query) or ([], None)
+        elif content_type == 'artist':
+            mb_results, mb_error = mb_service.search_artist(query) or ([], None)
+
+    # Normalize MusicBrainz results to match streaming results format
+    normalized_mb = []
+    if mb_results:
+        for res in mb_results:
+            normalized_mb.append({
+                'id': res.get('id'),
+                'title': res.get('title') or res.get('name'),
+                'artist': res.get('artist') or res.get('name'),
+                'artist_id': res.get('id') if content_type == 'artist' else None,
+                'album': res.get('album'),
+                'year': (res.get('first_release_date') or '')[:4],
+                'track_count': None,
+                'quality': 'Unknown',
+                'explicit': False,
+                'version': res.get('type') if res.get('type') != 'album' else None,
+                'service': 'musicbrainz',
+                'cover_url': None # MusicBrainz doesn't provide cover URLs directly easily
+            })
+
+    results = streaming_results + normalized_mb
+    error = streaming_error or mb_error
+
     if not results and error:
         return jsonify({'error': error}), 500
     
@@ -398,6 +461,44 @@ def search_jellyfin():
         api_key=app.config.get('JELLYFIN_API_KEY')
     )
     results = jellyfin_service.search_library(query)
+    
+    return jsonify({'results': results})
+
+@app.route('/api/artist/<service>/<artist_id>/releases')
+@login_required
+def get_artist_releases(service, artist_id):
+    """Get all releases for an artist"""
+    if service == 'musicbrainz':
+        mb_service = MusicBrainzService()
+        mb_results, error = mb_service.get_artist_releases(artist_id)
+        # Normalize MB releases
+        results = []
+        if mb_results:
+            for res in mb_results:
+                results.append({
+                    'id': res.get('id'),
+                    'title': res.get('title'),
+                    'artist': None, # We already know the artist
+                    'year': (res.get('first_release_date') or '')[:4],
+                    'release_date': res.get('first_release_date'),
+                    'track_count': None,
+                    'quality': 'Unknown',
+                    'explicit': False,
+                    'version': res.get('type') if res.get('type') != 'album' else None,
+                    'service': 'musicbrainz',
+                    'cover_url': None
+                })
+    else:
+        streamrip_service = StreamripService(
+            config_path=app.config.get('STREAMRIP_CONFIG_PATH', 'config/streamrip.toml'),
+            primary_service=app.config.get('PRIMARY_STREAMING_SERVICE', 'qobuz'),
+            fallback_service=app.config.get('FALLBACK_STREAMING_SERVICE', 'deezer')
+        )
+        import asyncio
+        results, error = asyncio.run(streamrip_service.get_artist_albums_async(artist_id, service))
+    
+    if error:
+        return jsonify({'error': error}), 500
     
     return jsonify({'results': results})
 
