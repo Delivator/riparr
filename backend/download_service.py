@@ -263,25 +263,35 @@ class DownloadService:
                     break
 
             if has_subfolders and request.content_type.value == 'album':
-                logger.info("Detected pre-structured album download. Moving contents directly to output path.")
-                # We move each item from the temp dir to the output_path root
-                # This respects Streamrip's structure (Artist/Album...)
-                for item in top_level_items:
-                    src = os.path.join(request.download_path, item)
-                    dst = os.path.join(self._get_output_path(), item)
-                    
-                    if os.path.isdir(src):
-                        if os.path.exists(dst):
-                            # Merge directories if they exist
+                logger.info("Detected pre-structured album download. Moving contents using pattern.")
+                dest_path = self._build_destination_path(request)
+                
+                # If Streamrip created a single album folder inside our temp dir,
+                # we want to move its CONTENTS into dest_path to avoid "music/Artist/Album/Album"
+                folders = [i for i in top_level_items if os.path.isdir(os.path.join(request.download_path, i))]
+                
+                if len(folders) == 1:
+                    album_src = os.path.join(request.download_path, folders[0])
+                    os.makedirs(dest_path, exist_ok=True)
+                    for item in os.listdir(album_src):
+                        src = os.path.join(album_src, item)
+                        dst = os.path.join(dest_path, item)
+                        if os.path.isdir(src) and os.path.exists(dst):
                             self._merge_directories(src, dst)
                         else:
                             shutil.move(src, dst)
-                    else:
-                        shutil.move(src, dst)
+                else:
+                    # Move everything from download_path to dest_path
+                    os.makedirs(dest_path, exist_ok=True)
+                    for item in top_level_items:
+                        src = os.path.join(request.download_path, item)
+                        dst = os.path.join(dest_path, item)
+                        if os.path.isdir(src) and os.path.exists(dst):
+                            self._merge_directories(src, dst)
+                        else:
+                            shutil.move(src, dst)
                 
-                # Update request with the primary directory (usually artist name)
-                # This isn't perfect for the DB, but good enough for tracking
-                request.download_path = os.path.join(self._get_output_path(), top_level_items[0])
+                request.download_path = dest_path
             else:
                 # Build destination path using pattern for tracks or unstructured albums
                 dest_path = self._build_destination_path(request)
