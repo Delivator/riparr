@@ -359,18 +359,6 @@ wheels = [
 ]
 
 [[package]]
-name = "gunicorn"
-version = "21.2.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "packaging" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/06/89/acd9879fa6a5309b4bf16a5a8855f1e58f26d38e0c18ede9b3a70996b021/gunicorn-21.2.0.tar.gz", hash = "sha256:88ec8bff1d634f98e61b9f65bc4bf3cd918a90806c6f5c48bc5603849ec81033", size = 3632557, upload-time = "2023-07-19T11:46:46.917Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/0e/2a/c3a878eccb100ccddf45c50b6b8db8cf3301a6adede6e31d48e8531cab13/gunicorn-21.2.0-py3-none-any.whl", hash = "sha256:3213aa5e8c24949e792bcacfc176fef362e7aac80b76c56f6b5122bf350722f0", size = 80176, upload-time = "2023-07-19T11:46:44.51Z" },
-]
-
-[[package]]
 name = "h11"
 version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -779,7 +767,6 @@ dependencies = [
     { name = "flask-login" },
     { name = "flask-socketio" },
     { name = "flask-sqlalchemy" },
-    { name = "gunicorn" },
     { name = "musicbrainzngs" },
     { name = "python-dotenv" },
     { name = "requests" },
@@ -800,7 +787,6 @@ requires-dist = [
     { name = "flask-login", specifier = "==0.6.3" },
     { name = "flask-socketio", specifier = "==5.3.6" },
     { name = "flask-sqlalchemy", specifier = "==3.1.1" },
-    { name = "gunicorn", specifier = "==21.2.0" },
     { name = "musicbrainzngs", specifier = "==0.7.1" },
     { name = "python-dotenv", specifier = "==1.0.0" },
     { name = "requests", specifier = "==2.31.0" },

@@ -33,6 +33,7 @@ EXPOSE 5000
 ENV FLASK_APP=backend/app.py
 ENV PYTHONUNBUFFERED=1
 ENV DATABASE_URL=sqlite:////app/data/riparr.db
+ENV PYTHONPATH=/app
 
-# Run the application with gunicorn and eventlet for WebSocket support
-CMD ["gunicorn", "--worker-class", "eventlet", "--workers", "1", "--bind", "0.0.0.0:5000", "backend.app:app"]
+# Run the application with uv
+CMD ["uv", "run", "python", "-m", "backend.app"]

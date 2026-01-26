@@ -14,6 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import eventlet
+eventlet.monkey_patch()
+
 import os
 
 from dotenv import load_dotenv
@@ -51,6 +54,7 @@ logger.propagate = True
 # Force unbuffered logging if possible or just log startup
 # Live-reload verification comment
 logger.info("Riparr starting up...")
+
 
 
 from backend.auth_service import JellyfinAuthService, LocalAuthService
