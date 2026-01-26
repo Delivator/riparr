@@ -60,8 +60,11 @@ class StreamripService:
         if config_path:
             self.config_path = os.path.abspath(config_path)
         else:
-            # Default to project-relative path, but make it absolute
-            self.config_path = os.path.abspath(os.path.join(os.getcwd(), 'config/streamrip.toml'))
+            # Default to /app/config/streamrip.toml if in docker, otherwise project-relative
+            if os.path.exists('/.dockerenv') or os.environ.get('DOCKER_CONTAINER'):
+                self.config_path = '/app/config/streamrip.toml'
+            else:
+                self.config_path = os.path.abspath(os.path.join(os.getcwd(), 'config/streamrip.toml'))
             
         self.primary_service = primary_service or 'qobuz'
         self.fallback_service = fallback_service or 'deezer'

@@ -32,19 +32,20 @@ from flask_login import (
 from flask_socketio import SocketIO
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file if it exists.
+# System environment variables take precedence.
+load_dotenv(override=False)
 
 import logging
 import sys
 
 # Setup logging
+# We strictly use StreamHandler to let Docker handle logs via stdout/stderr
 log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 logging.basicConfig(
     level=logging.INFO,
     format=log_format,
     handlers=[
-        logging.FileHandler('riparr_debug.log'),
         logging.StreamHandler(sys.stdout)
     ]
 )

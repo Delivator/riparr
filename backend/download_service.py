@@ -32,16 +32,16 @@ class DownloadService:
     def _get_temp_path(self):
         if self.temp_path: return self.temp_path
         try:
-            return current_app.config.get('TEMP_DOWNLOAD_PATH')
+            return current_app.config.get('TEMP_DOWNLOAD_PATH') or '/tmp/riparr/downloads'
         except:
-            return './downloads/temp'
+            return '/tmp/riparr/downloads'
 
     def _get_output_path(self):
         if self.output_path: return self.output_path
         try:
-            return current_app.config.get('MUSIC_OUTPUT_PATH')
+            return current_app.config.get('MUSIC_OUTPUT_PATH') or '/media/Music'
         except:
-            return './music'
+            return '/media/Music'
 
     def _get_path_pattern(self):
         if self.path_pattern: return self.path_pattern
